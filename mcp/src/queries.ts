@@ -4,6 +4,7 @@
  * No dependen del driver: reciben un `Runner` (una función que ejecuta Cypher
  * y devuelve filas), así se pueden testear con datos en memoria.
  */
+import { brechasDe, formatBrechas } from '../../ingest/src/brechas.ts';
 import { formatImpact, impactOf } from '../../ingest/src/impact.ts';
 import type { Graph } from '../../ingest/src/model.ts';
 
@@ -224,4 +225,9 @@ function resumenLogros(rows: Row[]): string {
     '',
     'Filtra con tecnologia, proyecto o texto para ver el detalle.',
   ].join('\n');
+}
+
+/** Brechas frente a una oferta: clasifica lo que pide contra el grafo (ver ingest/src/brechas.ts). */
+export async function brechas(run: Runner, requisitos: string[], oferta?: string): Promise<string> {
+  return formatBrechas(brechasDe(await loadGraph(run), requisitos, oferta ?? ''));
 }

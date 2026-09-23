@@ -17,7 +17,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import { CvStore, ESTADOS } from './cv-tools.ts';
-import { buscar, impacto, logros, proyectosQueUsan, resumenProyecto, vecinos, type Runner } from './queries.ts';
+import { brechas, buscar, impacto, logros, proyectosQueUsan, resumenProyecto, vecinos, type Runner } from './queries.ts';
 
 const envFile = process.env.GRAFO_ENV ?? resolve(import.meta.dirname, '../../ingest/.env');
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -120,6 +120,21 @@ server.registerTool(
     annotations: readOnly,
   },
   (f) => tool(() => logros(run, f))(),
+);
+
+server.registerTool(
+  'brechas',
+  {
+    title: 'Brechas frente a una oferta',
+    description:
+      'Clasifica lo que pide una oferta laboral contra el grafo de Rafa: demostrado con logros de la BASE, solo declarado en el stack de un proyecto, mencionado en logros sin nota de tecnología, conocido sin uso, o brecha. Extrae tú los requisitos de la oferta (tecnologías, herramientas, metodologías) y pásalos en `requisitos`; pasa también el texto en `oferta` para detectar tecnologías conocidas que se te escapen. No inventa respaldo: solo cuenta lo que está en el grafo.',
+    inputSchema: {
+      requisitos: z.array(z.string()).describe('Términos que pide la oferta, tal como aparecen, p. ej. ["React", "Docker", "Scrum"]'),
+      oferta: z.string().optional().describe('Texto completo de la oferta (opcional)'),
+    },
+    annotations: readOnly,
+  },
+  ({ requisitos, oferta }) => tool(() => brechas(run, requisitos, oferta))(),
 );
 
 server.registerTool(

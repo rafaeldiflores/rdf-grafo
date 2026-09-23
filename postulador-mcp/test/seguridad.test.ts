@@ -94,6 +94,19 @@ describe('Vault contra GitHub', () => {
     await expect(v.listar('proyectos')).rejects.toThrow(/no permitido/);
     expect(gh.log).toEqual([]);
   });
+  it('llama a fetch sin atarlo a Vault (en Workers eso es "Illegal invocation")', async () => {
+    const original = globalThis.fetch;
+    // Imita la regla del runtime: fetch solo acepta this = undefined o globalThis.
+    globalThis.fetch = function (this: unknown) {
+      if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation');
+      return Promise.resolve(Response.json({ sha: 's', content: b64.encode(new TextEncoder().encode('# BASE')) }));
+    } as typeof fetch;
+    try {
+      expect(await new Vault('TOKEN', 'rafa/rdf-vault').leer('cv/BASE_Experiencia.md')).toBe('# BASE');
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
   it('actualiza con el sha previo y crea sin sha', async () => {
     const { gh } = montar();
     const v = new Vault('TOKEN', 'rafa/rdf-vault', 'main', gh.http);

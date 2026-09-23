@@ -35,7 +35,8 @@ export class Vault {
     private readonly token: string,
     private readonly repo: string,
     private readonly rama = 'main',
-    private readonly http: typeof fetch = fetch,
+    // Envoltura, no `fetch` directo: llamado como this.http() recibiría this = Vault y Workers lo rechaza ("Illegal invocation").
+    private readonly http: typeof fetch = (input, init) => fetch(input, init),
   ) {}
 
   private async api(path: string, init: RequestInit = {}): Promise<Response> {

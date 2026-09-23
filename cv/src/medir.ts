@@ -14,9 +14,11 @@ export const LINEA = (10 * 1.2 * 96) / 72;
 
 /** Se evalúa DENTRO de la página: alto del contenido y del Resumen, en px. */
 export function medirEnPagina(): { contenido: number; resumen: number } {
-  const ps = document.querySelectorAll('section:first-of-type p');
-  const resumen = [...ps].reduce((h, el) => h + el.getBoundingClientRect().height, 0);
-  return { contenido: document.body.scrollHeight, resumen };
+  // Tipado mínimo propio: este archivo también compila en un Worker, donde no hay tipos del DOM.
+  type Caja = { getBoundingClientRect(): { height: number } };
+  const doc = (globalThis as unknown as { document: { querySelectorAll(s: string): ArrayLike<Caja>; body: { scrollHeight: number } } }).document;
+  const resumen = Array.from(doc.querySelectorAll('section:first-of-type p')).reduce((h, el) => h + el.getBoundingClientRect().height, 0);
+  return { contenido: doc.body.scrollHeight, resumen };
 }
 
 /** Cuenta páginas en el PDF (objetos /Type /Page, no /Pages). */

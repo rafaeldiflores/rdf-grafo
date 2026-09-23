@@ -9,7 +9,7 @@
  *   Párrafo…
  *   ## HABILIDADES TÉCNICAS
  *   - **Frontend & Mobile:** TypeScript, Angular 22…
- *   ## EXPERIENCIA / PROYECTOS EN DESARROLLO FULL-STACK
+ *   ## EXPERIENCIA PROFESIONAL
  *   ### Fundador y Desarrollador Principal | MAZA (SaaS de Gestión) (May 2024 – Presente)
  *   - **Etiqueta:** Verbo + tecnología + resultado.
  *   ## EDUCACIÓN Y CERTIFICACIONES
@@ -31,6 +31,10 @@ export interface Encabezado {
   fechas_fijas: Record<string, string>;
   /** Textos que jamás pueden aparecer en un CV (p. ej. proyectos que no se muestran). */
   nunca_incluir: string[];
+  /** Título profesional literal, p. ej. "Ingeniero en Informática": abre el subtítulo de todo CV. */
+  titulo_profesional?: string;
+  /** Nombre del grado tal como se escribe en Educación, p. ej. "Ingeniería en Informática". */
+  grado?: string;
   papel: 'Letter' | 'A4';
 }
 
@@ -102,6 +106,8 @@ export function parseEncabezado(raw: string): Encabezado {
     links: Array.isArray(data.links) ? data.links : [],
     fechas_fijas: data.fechas_fijas ?? {},
     nunca_incluir: Array.isArray(data.nunca_incluir) ? data.nunca_incluir.map(String) : [],
+    titulo_profesional: typeof data.titulo_profesional === 'string' ? data.titulo_profesional.trim() : undefined,
+    grado: typeof data.grado === 'string' ? data.grado.trim() : undefined,
     papel: data.papel === 'A4' ? 'A4' : 'Letter',
   };
 }

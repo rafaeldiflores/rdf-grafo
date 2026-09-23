@@ -21,7 +21,7 @@ titulo: "Ingeniera | Full-Stack"
 Texto corto.
 ## HABILIDADES TÉCNICAS
 - **Frontend:** Angular.
-## EXPERIENCIA / PROYECTOS EN DESARROLLO
+## EXPERIENCIA PROFESIONAL
 ### Fundadora | MAZA (SaaS) (May 2024 – Presente)
 - **Backend:** Worker.
 ## EDUCACIÓN Y CERTIFICACIONES

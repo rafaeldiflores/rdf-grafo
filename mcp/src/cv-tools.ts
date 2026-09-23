@@ -10,7 +10,7 @@
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
-import { lintCv, type Hallazgo } from '../../cv/src/lint.ts';
+import { lintCv, SECCIONES, type Hallazgo } from '../../cv/src/lint.ts';
 import { parseCv, parseEncabezado } from '../../cv/src/parse.ts';
 import { htmlAPdf } from '../../cv/src/pdf.ts';
 import { renderHtml } from '../../cv/src/render.ts';
@@ -46,7 +46,7 @@ export class CvStore {
     return {
       base: this.leer('cv/BASE_Experiencia.md'),
       perfiles,
-      reglas: { fechas_fijas: enc.fechas_fijas, nunca_incluir: enc.nunca_incluir, estados: ESTADOS },
+      reglas: { titulo_profesional: enc.titulo_profesional, fechas_fijas: enc.fechas_fijas, nunca_incluir: enc.nunca_incluir, secciones: SECCIONES, estados: ESTADOS },
     };
   }
 

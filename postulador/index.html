@@ -311,18 +311,21 @@
 - Certificaciones en curso: "en curso" o "en preparación", NUNCA con fecha de verificación.
 - MedInfo NUNCA se omite en un CV de IA. El Sistema de postulaciones NUNCA va en un CV.
 - Cadena canónica de MAZA, literal y como oración aparte: "en pruebas cerradas para Google Play (vX), con 14 talleres y ~100 vehículos en uso real. Volumen procesado: 561 órdenes y 2.605 cambios de estado." (copia la versión exacta del CV base). En un CV de Datos/BI se omite la oración del volumen porque va el logro maza-data-vol-01.
+- Título profesional LITERAL, carácter por carácter: "{TITULO}". Nunca cambies su género ni su terminación (NO "Informático"), ni lo abrevies ("Ing."). En Educación el grado se escribe como en el CV base.
 - Fechas fijas (no las cambies): {FECHAS}. Textos vetados: {VETOS}.
 - Formato EXACTO (Markdown): frontmatter con titulo; luego EXACTAMENTE 4 secciones en este orden:
   "## RESUMEN PROFESIONAL" (un párrafo de máximo ~450 caracteres = 4 líneas),
   "## HABILIDADES TÉCNICAS" (viñetas "- **Categoría:** …"),
-  "## EXPERIENCIA / PROYECTOS EN <ÁREA DE LA OFERTA EN MAYÚSCULAS>",
+  "## EXPERIENCIA PROFESIONAL" (título estándar: los ATS lo reconocen; el área de la oferta ya va en el subtítulo),
   "## EDUCACIÓN Y CERTIFICACIONES".
   Cada experiencia: "### Cargo | Empresa (Mes Año – Mes Año|Presente)" y viñetas "- **Etiqueta:** Verbo + tecnología exacta + resultado.".
 - Máximo 8 viñetas de experiencia en total. Para acortar se BORRAN viñetas, nunca se agregan.
-- El titulo (subtítulo bajo el nombre) = "Ingeniero en Informática | <cargo exacto de la oferta> (<3-4 tecnologías centrales>)".
-- Palabras clave: usa la forma exacta de la oferta cuando la BASE la respalda; siglas expandidas ("Inteligencia Artificial (IA)"); términos centrales también en inglés una vez. Nada de relleno ni términos que la BASE no respalde.`;
+- El titulo (subtítulo bajo el nombre) = "{TITULO} | <cargo exacto de la oferta, copiado tal cual> (<3-4 tecnologías centrales de la oferta que la BASE respalde>)".
+- Palabras clave (así puntúan los ATS: coincidencia literal): usa la forma EXACTA de la oferta cuando la BASE la respalda (si dice "APIs REST", no "servicios RESTful"); nombra las herramientas requeridas de la oferta en HABILIDADES y también dentro de una viñeta de experiencia que las use; siglas expandidas una vez ("Inteligencia Artificial (IA)"); términos centrales también en inglés una vez. Nada de relleno ni términos que la BASE no respalde.
+- Viñetas: empiezan con verbo en pasado ("Desarrollé", "Implementé") y, cuando la BASE tiene la cifra, incluyen el número. Sin tablas, emojis ni símbolos decorativos.`;
 
   const reglasCon = () => REGLAS
+    .replaceAll("{TITULO}", ctx.reglas.titulo_profesional || "Ingeniero en Informática")
     .replace("{FECHAS}", Object.entries(ctx.reglas.fechas_fijas).map(([k, v]) => `${k} desde ${v}`).join("; "))
     .replace("{VETOS}", ctx.reglas.nunca_incluir.join(", "));
 

@@ -4,7 +4,7 @@
  * postulación vienen de app/cv; aquí solo cambia dónde se lee/escribe (GitHub)
  * y con qué se genera el PDF (Browser Run).
  */
-import { lintCv, type Hallazgo } from '../../cv/src/lint.ts';
+import { lintCv, SECCIONES, type Hallazgo } from '../../cv/src/lint.ts';
 import { parseCv, parseEncabezado } from '../../cv/src/parse.ts';
 import { ESTADOS, fusionarPostulacion, leerPostulacion, nombreSeguro, rutaPostulacion, type PostulacionInput } from '../../cv/src/postulaciones.ts';
 import { renderHtml } from '../../cv/src/render.ts';
@@ -30,7 +30,7 @@ export class Postulador {
     const perfiles = await Promise.all(
       nombres.map(async (n) => ({ perfil: n.slice(0, -'.md'.length), markdown: (await this.vault.leer(`cv/base/${n}`)) ?? '' })),
     );
-    return { base: base ?? '', perfiles, reglas: { fechas_fijas: enc.fechas_fijas, nunca_incluir: enc.nunca_incluir, estados: ESTADOS } };
+    return { base: base ?? '', perfiles, reglas: { titulo_profesional: enc.titulo_profesional, fechas_fijas: enc.fechas_fijas, nunca_incluir: enc.nunca_incluir, secciones: SECCIONES, estados: ESTADOS } };
   }
 
   async validar(markdown: string) {

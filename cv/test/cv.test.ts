@@ -22,7 +22,7 @@ titulo: "Ingeniera | Desarrolladora Full-Stack"
 Ingeniera con **experiencia** en TypeScript.
 ## HABILIDADES TÉCNICAS
 - **Frontend:** Angular, React.
-## EXPERIENCIA / PROYECTOS EN DESARROLLO
+## EXPERIENCIA PROFESIONAL
 ### Fundadora | MAZA (SaaS) (May 2024 – Presente)
 - **Backend:** Worker con 21 endpoints.
 ## EDUCACIÓN Y CERTIFICACIONES
@@ -62,6 +62,26 @@ describe('lintCv', () => {
   it('bloquea textos de nunca_incluir sin importar mayúsculas', () => {
     expect(reglas(cvOk.replace('Titulada.', 'Titulada. Ver proyecto secreto.'))).toContain('nunca-incluir');
   });
+  it('rechaza el título antiguo "EXPERIENCIA / PROYECTOS EN …"', () => {
+    expect(reglas(cvOk.replace('## EXPERIENCIA PROFESIONAL', '## EXPERIENCIA / PROYECTOS EN DESARROLLO'))).toContain('anclas-ats');
+  });
+
+  describe('título profesional literal', () => {
+    const encT = { ...enc, titulo_profesional: 'Ingeniero en Informática', grado: 'Ingeniería en Informática' };
+    const cvT = cvOk
+      .replace('titulo: "Ingeniera | Desarrolladora Full-Stack"', 'titulo: "Ingeniero en Informática | Desarrollador Full-Stack"')
+      .replace('Ingeniera con', 'Ingeniero en Informática con');
+    const detalles = (md: string) => lintCv(parseCv(md), encT).filter((h) => h.regla === 'titulo-profesional').map((h) => h.detalle);
+    it('acepta el título y el grado escritos tal cual', () => expect(detalles(cvT)).toEqual([]));
+    it.each(['Ingeniero en Informático', 'Ingeniero en Informatica', 'Ingeniera en Informática', 'ingeniero en informática'])('detecta "%s"', (malo) => {
+      expect(detalles(cvT.replace('Ingeniero en Informática con', `${malo} con`)).join()).toContain(`"${malo}"`);
+    });
+    it('exige que el subtítulo empiece con el título profesional', () => {
+      expect(detalles(cvT.replace('"Ingeniero en Informática | Desarrollador', '"Desarrollador'))).toHaveLength(1);
+    });
+    it('sin titulo_profesional en el encabezado la regla no aplica', () => expect(reglas(cvOk)).not.toContain('titulo-profesional'));
+  });
+
   it('avisa con más de 8 viñetas de experiencia', () => {
     const muchas = Array.from({ length: 9 }, (_, i) => `- **V${i}:** x.`).join('\n');
     expect(reglas(cvOk.replace('- **Backend:** Worker con 21 endpoints.', muchas))).toContain('densidad');

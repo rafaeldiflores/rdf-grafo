@@ -54,9 +54,10 @@
         <span [class.on]="vista() === '2d'">2D</span><span [class.on]="vista() === '3d'">3D</span>
       </button>
     }
-    <button type="button" class="filter tool sonido" (click)="musica.alternar()" [class.on]="musica.sonando()"
-            [attr.aria-pressed]="musica.sonando()" [attr.aria-label]="musica.sonando() ? 'Apagar música' : 'Activar música ambiental'">
-      @if (musica.sonando()) {
+    <button type="button" class="filter tool sonido" (click)="musica.alternar()" [class.on]="musica.activada()"
+            [class.late]="musica.sonando()"
+            [attr.aria-pressed]="musica.activada()" [attr.aria-label]="musica.activada() ? 'Apagar música' : 'Activar música ambiental'">
+      @if (musica.activada()) {
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9Z" /><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /></svg>
       } @else {
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9Z" /><path d="M17 9.5l5 5M22 9.5l-5 5" /></svg>

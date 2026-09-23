@@ -6,11 +6,16 @@ import { DestroyRef, inject, Injectable, signal } from '@angular/core';
  * eco sobre mucha reverberación. Se sintetiza en vivo con Web Audio: no hay
  * archivos de audio ni música de terceros.
  *
- * Siempre parte apagada: solo suena si el visitante la activa (los navegadores
- * además bloquean el audio sin un gesto). Se pausa si la pestaña se oculta.
+ * Activada por defecto (decisión de Rafa). Los navegadores no dejan sonar audio
+ * sin un gesto del visitante: se intenta al cargar y, si queda bloqueada,
+ * arranca con la primera interacción en cualquier parte de la página. Si el
+ * visitante la apaga, se recuerda (localStorage). Se pausa si la pestaña se oculta.
  */
 @Injectable({ providedIn: 'root' })
 export class MusicaService {
+  /** Preferencia: encendida salvo que el visitante la haya apagado antes. */
+  readonly activada = signal(leerPreferencia());
+  /** Estado real: el audio está sonando (puede esperar el primer gesto). */
   readonly sonando = signal(false);
   private ctx?: AudioContext;
   private master?: GainNode;
@@ -25,20 +30,57 @@ export class MusicaService {
       void (document.hidden ? this.ctx.suspend() : this.ctx.resume());
     };
     document.addEventListener('visibilitychange', onVis);
+    // Primer gesto en la página: si la música está activada y el navegador la
+    // bloqueó al cargar, arranca aquí. El clic en el propio botón no cuenta
+    // (ese clic la apaga).
+    const primerGesto = (e: Event) => {
+      if ((e.target as Element | null)?.closest?.('.sonido')) return;
+      quitar();
+      if (this.activada() && !this.sonando()) this.iniciar();
+    };
+    const eventos = ['pointerdown', 'keydown', 'touchend'] as const;
+    const quitar = () => eventos.forEach((t) => document.removeEventListener(t, primerGesto, true));
+    eventos.forEach((t) => document.addEventListener(t, primerGesto, true));
+
     inject(DestroyRef).onDestroy(() => {
       document.removeEventListener('visibilitychange', onVis);
+      quitar();
       this.detener();
     });
+
+    // Intento al cargar: suena solo si el navegador ya lo permite.
+    if (this.activada()) this.intentarSinGesto();
   }
 
   alternar(): void {
-    if (this.sonando()) this.detener();
-    else this.iniciar();
+    const on = !this.activada();
+    this.activada.set(on);
+    guardarPreferencia(on);
+    if (on) this.iniciar();
+    else this.detener();
+  }
+
+  private intentarSinGesto(): void {
+    try {
+      const ctx = (this.ctx ??= new AudioContext());
+      // Sin gesto, resume() queda pendiente o el contexto sigue suspendido:
+      // se comprueba después y, si no corre, espera al primer gesto.
+      void ctx.resume();
+      setTimeout(() => {
+        if (ctx.state === 'running' && this.activada() && !this.sonando()) this.iniciar();
+      }, 300);
+    } catch {
+      /* sin Web Audio: no hay música */
+    }
   }
 
   private iniciar(): void {
     const ctx = (this.ctx ??= new AudioContext());
+    // Cancela un apagado en curso (su suspend() diferido silenciaría esto).
+    this.timers.forEach(clearTimeout);
+    this.timers = [];
     void ctx.resume();
+    if (this.sonando()) return;
     if (!this.master) this.armarCadena(ctx);
     const t = ctx.currentTime;
     this.master!.gain.cancelScheduledValues(t);
@@ -187,6 +229,24 @@ export class MusicaService {
 }
 
 const midi = (n: number) => 440 * Math.pow(2, (n - 69) / 12);
+
+const CLAVE = 'rdf-grafo:musica';
+
+function leerPreferencia(): boolean {
+  try {
+    return localStorage.getItem(CLAVE) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+function guardarPreferencia(on: boolean): void {
+  try {
+    localStorage.setItem(CLAVE, on ? '1' : '0');
+  } catch {
+    /* sin storage: la elección dura la sesión */
+  }
+}
 
 /** Respuesta al impulso sintética: ruido estéreo con caída exponencial (sala enorme). */
 function impulso(ctx: AudioContext, segundos: number, caida: number): AudioBuffer {

@@ -155,7 +155,7 @@ app-graph-3d, .scene-dark {
   svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   &.on.on { border-color: var(--accent); color: var(--accent); }
   // Mientras suena, el ícono "late" suave: señal de que el audio está activo.
-  &.on svg { animation: late 2.4s ease-in-out infinite; }
+  &.late svg { animation: late 2.4s ease-in-out infinite; }
 }
 @keyframes late {
   50% { transform: scale(1.12); }

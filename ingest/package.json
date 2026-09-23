@@ -9,7 +9,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "check-public": "tsx src/cli/check-public.ts",
-    "propagar": "tsx src/cli/propagar.ts"
+    "propagar": "tsx src/cli/propagar.ts",
+    "auditar-cv": "tsx src/cli/auditar-cv.ts"
   },
   "type": "module",
   "dependencies": {

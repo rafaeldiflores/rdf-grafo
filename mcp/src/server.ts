@@ -16,6 +16,7 @@ import neo4j from 'neo4j-driver';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
+import { auditarVault } from '../../ingest/src/auditar-vault.ts';
 import { CvStore, ESTADOS } from './cv-tools.ts';
 import { brechas, buscar, impacto, logros, proyectosQueUsan, resumenProyecto, vecinos, type Runner } from './queries.ts';
 
@@ -161,6 +162,18 @@ server.registerTool(
     annotations: readOnly,
   },
   () => json(() => cv.contexto())(),
+);
+
+server.registerTool(
+  'auditar_cv',
+  {
+    title: 'Auditoría de frescura del CV',
+    description:
+      '¿Están al día la BASE y los CVs base con los proyectos, sus stacks y sus repos? Reporta versiones desfasadas (del proyecto y de sus tecnologías), proyectos sin logros, tecnologías del stack que la BASE no nombra y tecnologías demostradas que ningún CV base muestra, con la acción sugerida. Lee el vault local; no escribe nada. Úsala antes de generar CVs o cuando Rafa pregunte si su CV está actualizado.',
+    inputSchema: {},
+    annotations: readOnly,
+  },
+  () => tool(async () => auditarVault(cv.vault).texto)(),
 );
 
 server.registerTool(

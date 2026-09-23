@@ -25,6 +25,7 @@ import {
   type Block,
   type Versions,
 } from '../propagate.ts';
+import { versionsOf } from '../repos.ts';
 import { readVault } from '../vault.ts';
 
 loadEnv();
@@ -45,20 +46,6 @@ const config = JSON.parse(readFileSync(values.config!, 'utf8')) as {
   destinos: string[];
 };
 const { notes } = readVault(resolveVaultPath(values.vault));
-
-/** Versiones INSTALADAS (node_modules) y, si falta alguna, las declaradas en package.json. */
-function versionsOf(repo: string): Versions {
-  const pkg = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8'));
-  const versions: Versions = {};
-  for (const [name, declared] of Object.entries({ ...pkg.dependencies, ...pkg.devDependencies } as Record<string, string>)) {
-    try {
-      versions[name] = JSON.parse(readFileSync(join(repo, 'node_modules', name, 'package.json'), 'utf8')).version;
-    } catch {
-      versions[name] = declared;
-    }
-  }
-  return versions;
-}
 
 const cache = new Map<string, Versions>();
 const versionsFor = (project: string): Versions => {

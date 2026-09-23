@@ -20,7 +20,7 @@
   "durable_objects": {
     "bindings": [{ "class_name": "PostuladorMCP", "name": "MCP_OBJECT" }]
   },
-  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "<Add-KV-ID>" }],
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "7ff0cd547b77408bae1995936db5bfb5" }],
   "browser": { "binding": "BROWSER" },
   // Logs sin contenidos: el código no registra entradas ni salidas de herramientas.
   "observability": { "enabled": true },

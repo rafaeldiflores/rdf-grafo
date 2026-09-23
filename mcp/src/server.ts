@@ -17,7 +17,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import { CvStore, ESTADOS } from './cv-tools.ts';
-import { buscar, impacto, proyectosQueUsan, resumenProyecto, vecinos, type Runner } from './queries.ts';
+import { buscar, impacto, logros, proyectosQueUsan, resumenProyecto, vecinos, type Runner } from './queries.ts';
 
 const envFile = process.env.GRAFO_ENV ?? resolve(import.meta.dirname, '../../ingest/.env');
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -104,6 +104,22 @@ server.registerTool(
     annotations: readOnly,
   },
   ({ nodo }) => tool(() => impacto(run, nodo))(),
+);
+
+server.registerTool(
+  'logros',
+  {
+    title: 'Logros de la BASE',
+    description:
+      'Logros de la BASE de experiencia de Rafa (hechos con métricas, fuente única del CV) como nodos del grafo: filtra por tecnología que demuestran, proyecto y/o texto. Sin filtros, resume logros por proyecto y qué tecnologías están respaldadas por logros. Las reglas de uso en un CV (ESTIMADA, Sistema de postulaciones) están en la BASE.',
+    inputSchema: {
+      tecnologia: z.string().optional().describe('Tecnología que demuestra, p. ej. "Angular"'),
+      proyecto: z.string().optional().describe('Proyecto, p. ej. "MedInfo"'),
+      texto: z.string().optional().describe('Texto a buscar en título, tec, métrica y contexto, p. ej. "RAG"'),
+    },
+    annotations: readOnly,
+  },
+  (f) => tool(() => logros(run, f))(),
 );
 
 server.registerTool(

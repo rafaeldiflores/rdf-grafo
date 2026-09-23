@@ -47,6 +47,12 @@ La ruta al vault se toma de `--vault`, de `VAULT_PATH` o de `../vault`.
 `stack_destacado` marca `destacado: true` en las aristas `USA` curadas.
 Un link a una nota inexistente crea un nodo `pendiente`.
 
+## `web/`
+
+Angular 22 + Cytoscape.js sobre el `graph.json` público: colores por tipo,
+filtros, búsqueda, panel de detalle, tema claro/oscuro, responsive y enlaces
+directos a un nodo (`/#MAZA`). Ver [`web/README.md`](web/README.md).
+
 ### Exportación pública (fail-closed)
 
 - Solo nodos con `visibilidad: publico`, más las tecnologías conectadas a ellos.

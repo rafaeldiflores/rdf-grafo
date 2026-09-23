@@ -11,6 +11,7 @@
   "type": "module",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "gray-matter": "^4.0.3",
     "neo4j-driver": "^6.2.0",
     "zod": "^4.6.5"
   },

@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src", "test", "../ingest/src"]
+  "include": ["src", "test", "../ingest/src", "../cv/src"]
 }

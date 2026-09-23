@@ -16,6 +16,7 @@ import neo4j from 'neo4j-driver';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
+import { CvStore, ESTADOS } from './cv-tools.ts';
 import { buscar, impacto, proyectosQueUsan, resumenProyecto, vecinos, type Runner } from './queries.ts';
 
 const envFile = process.env.GRAFO_ENV ?? resolve(import.meta.dirname, '../../ingest/.env');
@@ -50,7 +51,7 @@ const tool = (fn: () => Promise<string>) => async () => {
     const hint = /ServiceUnavailable|connect|ENOTFOUND|routing/i.test(msg)
       ? ' Si la instancia AuraDB Free estuvo 3 días sin uso, se pausa: reanúdala en console.neo4j.io.'
       : '';
-    return { content: [{ type: 'text' as const, text: `Error consultando Neo4j: ${msg}.${hint}` }], isError: true };
+    return { content: [{ type: 'text' as const, text: `Error: ${msg}.${hint}` }], isError: true };
   }
 };
 
@@ -114,6 +115,83 @@ server.registerTool(
     annotations: readOnly,
   },
   ({ texto }) => tool(() => buscar(run, texto))(),
+);
+
+// ── CVs y postulaciones (vault local). Escrituras acotadas: ver cv-tools.ts. ──
+const cv = new CvStore(resolve(process.env.VAULT_PATH ?? resolve(import.meta.dirname, '../../../vault')));
+const json = (fn: () => unknown | Promise<unknown>) => tool(async () => JSON.stringify(await fn()));
+
+server.registerTool(
+  'cv_contexto',
+  {
+    title: 'Contexto para adaptar un CV',
+    description: 'BASE de experiencia (fuente única de logros), los CVs base por perfil en Markdown y las reglas (fechas fijas, textos vetados, estados del Tracker).',
+    inputSchema: {},
+    annotations: readOnly,
+  },
+  () => json(() => cv.contexto())(),
+);
+
+server.registerTool(
+  'cv_validar',
+  {
+    title: 'Validar y previsualizar un CV',
+    description: 'Aplica el verificador (reglas de la BASE y ATS), renderiza con la plantilla y mide: páginas, líneas de más, líneas del Resumen. Devuelve el HTML para vista previa. No escribe nada.',
+    inputSchema: { markdown: z.string().describe('CV en el formato de app/cv (frontmatter titulo + 4 secciones)') },
+    annotations: readOnly,
+  },
+  ({ markdown }) => json(() => cv.validar(markdown))(),
+);
+
+server.registerTool(
+  'cv_generar_pdf',
+  {
+    title: 'Generar el PDF del CV',
+    description: 'Genera el PDF solo si pasa todas las reglas y cabe en 1 página. Escribe únicamente en vault/cv/generados/ (el .md y el .pdf).',
+    inputSchema: {
+      markdown: z.string(),
+      nombre: z.string().describe('Nombre del archivo sin extensión, p. ej. "CV_RDF_Getdata_Mobile_20260923"'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  ({ markdown, nombre }) => json(() => cv.generarPdf(markdown, nombre))(),
+);
+
+server.registerTool(
+  'postulaciones_listar',
+  {
+    title: 'Listar postulaciones',
+    description: 'Todas las postulaciones del Tracker (frontmatter de vault/postulaciones).',
+    inputSchema: {},
+    annotations: readOnly,
+  },
+  () => json(() => cv.listarPostulaciones())(),
+);
+
+server.registerTool(
+  'postulacion_guardar',
+  {
+    title: 'Crear o actualizar una postulación',
+    description: 'Crea o actualiza la nota "Empresa - Cargo" en vault/postulaciones (siempre privada). Solo cambia los campos enviados; "notas" se agrega al cuerpo con fecha.',
+    inputSchema: {
+      empresa: z.string(),
+      cargo: z.string(),
+      estado: z.enum(ESTADOS),
+      area: z.string().optional(),
+      fecha: z.string().optional().describe('AAAA-MM-DD'),
+      canal: z.string().optional(),
+      cv_perfil: z.string().optional(),
+      cv_pdf: z.string().optional(),
+      keywords_cubiertas: z.string().optional(),
+      proxima_accion: z.string().optional(),
+      proxima_fecha: z.string().optional().describe('AAAA-MM-DD'),
+      motivo_descarte: z.string().optional(),
+      url: z.string().optional(),
+      notas: z.string().optional(),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  },
+  (p) => json(() => cv.guardarPostulacion(p))(),
 );
 
 await server.connect(new StdioServerTransport());

@@ -32,7 +32,7 @@ export const TIPOS: readonly { id: string; label: string }[] = [
   { id: 'persona', label: 'Clientes y personas' },
   { id: 'canal', label: 'Canales' },
   { id: 'area', label: 'Áreas' },
-  { id: 'aprendizaje', label: 'Aprendizaje' },
+  { id: 'aprendizaje', label: 'Formación' },
   { id: 'pendiente', label: 'Pendientes' },
 ];
 

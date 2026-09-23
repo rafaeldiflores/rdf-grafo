@@ -3,7 +3,9 @@
     <span class="tipo" [style.--dot]="'var(--tipo-' + node().tipo + ')'">{{ tipoLabel() }}</span>
     <h2 id="panel-title">{{ node().id }}</h2>
   </div>
-  <button type="button" class="icon-btn" (click)="close.emit()" aria-label="Cerrar detalle">✕</button>
+  <button type="button" class="icon-btn" (click)="close.emit()" aria-label="Cerrar detalle">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+  </button>
 </header>
 
 @if (props().length) {

@@ -2,7 +2,8 @@
 // así que el tema claro/oscuro se define en un solo lugar.
 :root {
   color-scheme: light;
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
 
   --bg: #f6f7f9;
   --surface: #ffffff;
@@ -64,7 +65,9 @@ body {
   overflow: hidden; // app de pantalla completa: solo el panel tiene scroll
 }
 
-a { color: var(--accent); }
+a { color: var(--accent); text-underline-offset: 0.2em; }
+
+::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 
 .icon-btn {
   display: inline-grid;
@@ -81,6 +84,8 @@ a { color: var(--accent); }
 
   &:hover { border-color: var(--accent); }
   &:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 }
 
 .sr-only {
@@ -94,4 +99,94 @@ a { color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
+}
+
+// ── Escena 3D ───────────────────────────────────────────────────────────────
+// Siempre nocturna, sea cual sea el tema: el brillo solo luce sobre fondo oscuro.
+app-graph-3d, .scene-dark {
+  @include dark;
+  --scene-bg: #05070b;
+  --scene-edge: #8fa3bf;
+  --scene-star: #9fb4d6;
+}
+
+// Etiquetas HTML de los nodos (CSS2DRenderer): fuera del encapsulado de Angular.
+.n3-label {
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #c6cfdc;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 450;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px #05070b, 0 0 8px #05070b;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s;
+
+  &.n3-proyecto {
+    color: #f2f5fa;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  &.focus { color: #fff; background: rgb(5 7 11 / 0.72); }
+  &.faded { opacity: 0.08; }
+}
+
+// Rótulo de capa en la vista de arquitectura de un proyecto.
+.n3-capa {
+  padding: 2px 8px;
+  border: 1px solid rgb(255 138 61 / 0.35);
+  border-radius: 999px;
+  background: rgb(5 7 11 / 0.8);
+  color: #ffb27d;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+// Botón de música: ícono dibujado; en celular solo el ícono.
+.sonido {
+  svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  &.on.on { border-color: var(--accent); color: var(--accent); }
+  // Mientras suena, el ícono "late" suave: señal de que el audio está activo.
+  &.on svg { animation: late 2.4s ease-in-out infinite; }
+}
+@keyframes late {
+  50% { transform: scale(1.12); }
+}
+@media (max-width: 720px) {
+  .sonido .sr-only-movil { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+}
+
+// Lente "Enfoque IA": mismo lenguaje que el botón de música.
+.lente {
+  svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+  &.on.on { border-color: var(--accent); color: var(--accent); background: rgb(255 138 61 / 0.1); }
+}
+
+// Herramientas de IA de cada parada del recorrido (global: el presupuesto de
+// estilos del componente App ya está al límite).
+.tour .ia {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    padding: 2px 8px;
+    border: 1px solid rgb(45 212 191 / 0.35);
+    border-radius: 999px;
+    background: rgb(45 212 191 / 0.08);
+    color: #7ee7d6;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+  }
 }

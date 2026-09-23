@@ -1,45 +1,74 @@
-<header class="topbar">
-  <div class="brand">
-    <h1>rdf-grafo</h1>
-    <p>Proyectos, tecnologías y clientes de Rafael Díaz Flores</p>
-  </div>
+<div class="chrome" #chrome [class.scene-dark]="inmersivo()">
+  <header class="topbar">
+    <div class="brand">
+      <h1>rdf-grafo</h1>
+      <p>Proyectos de IA, datos y software de Rafael Díaz Flores · AI Engineer</p>
+    </div>
 
-  <div class="search" role="search">
-    <label for="buscar" class="sr-only">Buscar un nodo</label>
-    <input id="buscar" type="search" placeholder="Buscar proyecto o tecnología…" autocomplete="off"
-           [value]="query()" (input)="query.set($any($event.target).value)" (keydown)="onSearchKey($event)"
-           [attr.aria-expanded]="results().length > 0" aria-controls="resultados" />
-    @if (results().length) {
-      <ul id="resultados" class="results" role="listbox">
-        @for (r of results(); track r.id) {
-          <li role="option" aria-selected="false">
-            <button type="button" (click)="pickResult(r.id)" [style.--dot]="'var(--tipo-' + r.tipo + ')'">{{ r.id }}</button>
-          </li>
+    <div class="search" role="search">
+      <label for="buscar" class="sr-only">Buscar un nodo</label>
+      <input id="buscar" type="search" placeholder="Buscar proyecto o tecnología…" autocomplete="off"
+             [value]="query()" (input)="query.set($any($event.target).value)" (keydown)="onSearchKey($event)"
+             [attr.aria-expanded]="results().length > 0" aria-controls="resultados" />
+      @if (results().length) {
+        <ul id="resultados" class="results" role="listbox">
+          @for (r of results(); track r.id) {
+            <li role="option" aria-selected="false">
+              <button type="button" (click)="pickResult(r.id)" [style.--dot]="'var(--tipo-' + r.tipo + ')'">{{ r.id }}</button>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+
+    <!-- En 3D la escena es siempre nocturna: el tema solo aplica a la vista 2D. -->
+    @if (!inmersivo()) {
+      <button type="button" class="icon-btn" (click)="themeService.toggle()"
+              [attr.aria-label]="themeService.theme() === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'">
+        @if (themeService.theme() === 'dark') {
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+        } @else {
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" /></svg>
         }
-      </ul>
+      </button>
     }
-  </div>
+  </header>
 
-  <button type="button" class="icon-btn" (click)="themeService.toggle()"
-          [attr.aria-label]="themeService.theme() === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'">
-    {{ themeService.theme() === 'dark' ? '☀' : '☾' }}
-  </button>
-</header>
-
-<nav class="filters" aria-label="Filtrar por tipo">
-  @for (t of tipos(); track t.id) {
-    <button type="button" class="filter" [class.off]="hiddenTipos().has(t.id)"
-            [attr.aria-pressed]="!hiddenTipos().has(t.id)" (click)="toggleTipo(t.id)"
-            [style.--dot]="'var(--tipo-' + t.id + ')'">
-      {{ t.label }} <span class="count">{{ t.count }}</span>
+  <nav class="filters" aria-label="Filtrar por tipo">
+    @for (t of tipos(); track t.id) {
+      <button type="button" class="filter" [class.off]="hiddenTipos().has(t.id)"
+              [attr.aria-pressed]="!hiddenTipos().has(t.id)" (click)="toggleTipo(t.id)"
+              [style.--dot]="'var(--tipo-' + t.id + ')'">
+        {{ t.label }} <span class="count">{{ t.count }}</span>
+      </button>
+    }
+    <button type="button" class="filter tool lente" (click)="lenteIA.set(!lenteIA())" [class.on]="lenteIA()"
+            [attr.aria-pressed]="lenteIA()" aria-label="Enfoque IA: resaltar herramientas de IA y los proyectos que las usan">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8Z" /><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z" /></svg>
+      Enfoque IA
     </button>
-  }
-  <span class="spacer"></span>
-  <button type="button" class="filter tool" (click)="fit()">Encuadrar</button>
-  <button type="button" class="filter tool" (click)="relayout()">Reordenar</button>
-</nav>
+    <span class="spacer"></span>
+    @if (webgl) {
+      <button type="button" class="filter tool vista" (click)="toggleVista()" [attr.aria-pressed]="vista() === '3d'"
+              [attr.aria-label]="vista() === '3d' ? 'Cambiar a vista 2D' : 'Cambiar a vista 3D'">
+        <span [class.on]="vista() === '2d'">2D</span><span [class.on]="vista() === '3d'">3D</span>
+      </button>
+    }
+    <button type="button" class="filter tool sonido" (click)="musica.alternar()" [class.on]="musica.sonando()"
+            [attr.aria-pressed]="musica.sonando()" [attr.aria-label]="musica.sonando() ? 'Apagar música' : 'Activar música ambiental'">
+      @if (musica.sonando()) {
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9Z" /><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /></svg>
+      } @else {
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9Z" /><path d="M17 9.5l5 5M22 9.5l-5 5" /></svg>
+      }
+      <span class="sr-only-movil">Música</span>
+    </button>
+    <button type="button" class="filter tool" (click)="fit()">Encuadrar</button>
+    <button type="button" class="filter tool" (click)="relayout()">Reordenar</button>
+  </nav>
+</div>
 
-<main class="stage" [class.with-panel]="selectedNode()">
+<main class="stage" [class.with-panel]="panelVisible()">
   @switch (data.state().status) {
     @case ('loading') {
       <p class="state">Cargando grafo…</p>
@@ -51,11 +80,92 @@
       </div>
     }
     @case ('ready') {
-      <app-graph-view class="canvas" [graph]="graph()!" [hiddenTipos]="hiddenTipos()" [selectedId]="selectedId()"
-                      [matchIds]="matchIds()" [theme]="themeService.theme()" (nodeSelect)="select($event)" />
-      @if (selectedNode(); as node) {
-        <app-detail-panel class="panel" role="complementary" aria-labelledby="panel-title"
-                          [graph]="graph()!" [node]="node" (select)="select($event)" (close)="select(null)" />
+      @if (vista() === '3d') {
+        <div class="canvas scene">
+          <app-graph-3d [graph]="graph()!" [hiddenTipos]="hiddenTipos()" [selectedId]="selectedId()"
+                        [matchIds]="matchIds()" [enfoque]="enfoque()" [cobertura]="cobertura()" [arriba]="alturaChrome()"
+                        (nodeSelect)="elegir($event)" />
+        </div>
+      } @else {
+        <div class="canvas scene">
+          <app-graph-view class="scene-dark" [graph]="graph()!" [hiddenTipos]="hiddenTipos()" [selectedId]="selectedId()"
+                          [matchIds]="matchIds()" [enfoque]="enfoque()" [cobertura]="cobertura()" [arriba]="alturaChrome()"
+                          (nodeSelect)="elegir($event)" />
+        </div>
+      }
+      @if (parada(); as p) {
+        <!-- Leyenda del recorrido: una parada a la vez, con progreso y control. -->
+        <section class="card tour scene-dark" aria-live="polite" aria-label="Recorrido guiado">
+          <p class="step">{{ paso()! + 1 }} / {{ paradas().length }}</p>
+          <h2>{{ p.titulo }}</h2>
+          <p class="texto">{{ p.texto }}</p>
+          @if (p.ia.length) {
+            <ul class="ia" aria-label="IA en este proyecto">
+              @for (t of p.ia; track t) { <li>{{ t }}</li> }
+            </ul>
+          }
+          @if (!pausado() && paso()! < paradas().length - 1) {
+            <!-- Un for con una sola clave: recrea la barra en cada parada y reinicia su animación. -->
+            @for (k of [paso()]; track k) {
+              <div class="progreso" [style.--dur]="segundosParada + 's'" aria-hidden="true"><span></span></div>
+            }
+          }
+          <div class="controles">
+            <button type="button" class="ctl" (click)="avanzar(-1)" [disabled]="paso() === 0" aria-label="Parada anterior">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+            </button>
+            @if (paso()! < paradas().length - 1) {
+              <button type="button" class="ctl" (click)="pausado.set(!pausado())"
+                      [attr.aria-label]="pausado() ? 'Continuar recorrido' : 'Pausar recorrido'">
+                @if (pausado()) {
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7Z" /></svg>
+                } @else {
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14M15 5v14" /></svg>
+                }
+              </button>
+              <button type="button" class="ctl" (click)="avanzar(1)" aria-label="Parada siguiente">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+              </button>
+            }
+            <span class="spacer"></span>
+            @if (p.id) {
+              <button type="button" class="link" (click)="salirRecorrido(true)">Ver detalle</button>
+            }
+            <button type="button" class="link" (click)="salirRecorrido()">
+              {{ paso()! < paradas().length - 1 ? 'Salir' : 'Explorar' }}
+            </button>
+          </div>
+        </section>
+      } @else if (resumen(); as r) {
+        <aside class="card intro scene-dark" [class.away]="selectedNode()" aria-label="Resumen del grafo">
+          <p class="who">Rafael Díaz Flores <span>Ingeniero en Informática · AI Engineer</span></p>
+          <p class="nums">
+            <span><b>{{ r.proyectos }}</b> proyectos</span>
+            <span><b>{{ r.ia }}</b> de IA</span>
+            <span><b>{{ r.tecnologias }}</b> tecnologías</span>
+          </p>
+          <button type="button" class="play" (click)="iniciarRecorrido()">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7Z" /></svg>
+            Ver recorrido
+          </button>
+          <p class="hint">o arrastra para girar y toca un planeta</p>
+          @if (r.portafolio || r.linkedin) {
+            <p class="links">
+              @if (r.portafolio) {
+                <a [href]="r.portafolio" target="_blank" rel="noopener noreferrer">Portafolio
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16L16 8M9 8h7v7" /></svg></a>
+              }
+              @if (r.linkedin) {
+                <a [href]="r.linkedin" target="_blank" rel="noopener noreferrer">LinkedIn
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16L16 8M9 8h7v7" /></svg></a>
+              }
+            </p>
+          }
+        </aside>
+      }
+      @if (panelVisible()) {
+        <app-detail-panel class="panel" [class.scene-dark]="inmersivo()" role="complementary" aria-labelledby="panel-title"
+                          [graph]="graph()!" [node]="selectedNode()!" (select)="elegir($event)" (close)="elegir(null)" />
       }
     }
   }

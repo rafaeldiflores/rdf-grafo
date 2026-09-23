@@ -1,6 +1,6 @@
 :host {
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto 1fr;
   grid-template-columns: minmax(0, 1fr); // evita que los filtros ensanchen la página
   height: 100dvh;
 }
@@ -154,3 +154,256 @@
     box-shadow: var(--shadow);
   }
 }
+
+// ── Vista 3D ────────────────────────────────────────────────────────────────
+.vista {
+  gap: 0;
+  padding: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+
+  span { padding: 3px 9px; border-radius: 999px; color: var(--text-muted); transition: background 0.2s, color 0.2s; }
+  span.on { background: var(--text); color: var(--bg); }
+}
+
+// isolation: las etiquetas 3D llevan z-index propios (orden por profundidad) y
+// sin esto quedarían encima de la hoja de detalle en celular.
+.scene { position: relative; min-height: 0; isolation: isolate; }
+
+// ── Modo inmersivo (3D) ─────────────────────────────────────────────────────
+// La escena llena la pantalla; barra, filtros y panel flotan encima, oscuros y
+// translúcidos. El blur tiene un fin concreto: leer la interfaz sobre nodos en
+// movimiento sin taparlos del todo.
+:host(.inmersivo) {
+  position: relative;
+
+  .chrome {
+    position: relative;
+    z-index: 3;
+    background: linear-gradient(rgb(3 5 8 / 0.82), rgb(3 5 8 / 0.55));
+    backdrop-filter: blur(14px) saturate(1.2);
+    border-bottom: 1px solid rgb(143 163 191 / 0.1);
+  }
+  .topbar, .filters { background: transparent; border-bottom: 0; }
+  .filter, .search input { background: rgb(255 255 255 / 0.04); border-color: rgb(143 163 191 / 0.16); }
+  .filter:hover { border-color: rgb(143 163 191 / 0.4); }
+
+  .stage { position: absolute; inset: 0; z-index: 0; }
+  .stage.with-panel { grid-template-columns: 1fr; }
+
+  .panel {
+    position: absolute;
+    z-index: 4;
+    top: calc(var(--chrome-h, 120px) + 12px);
+    right: 12px;
+    bottom: 12px;
+    width: min(380px, calc(100% - 24px));
+    border: 1px solid rgb(143 163 191 / 0.16);
+    border-radius: 16px;
+    background: rgb(7 10 15 / 0.8);
+    backdrop-filter: blur(16px) saturate(1.2);
+    box-shadow: 0 18px 48px rgb(0 0 0 / 0.5);
+    animation: entra-panel 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes entra-panel {
+  from { opacity: 0; transform: translateX(16px); }
+}
+
+.ctl svg, .play svg, .links svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+// Tarjetas sobre la escena: bienvenida y leyenda del recorrido.
+.card {
+  position: absolute;
+  z-index: 2;
+  left: 20px;
+  bottom: 20px;
+  width: min(360px, calc(100% - 40px));
+  padding: 16px 18px 14px;
+  border: 1px solid rgb(143 163 191 / 0.18);
+  border-radius: 16px;
+  background: rgb(7 10 15 / 0.78);
+  backdrop-filter: blur(14px) saturate(1.2);
+  color: var(--text);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.5);
+  animation: entra-card 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+
+  p { margin: 0; }
+}
+
+@keyframes entra-card {
+  from { opacity: 0; transform: translateY(14px); }
+}
+
+.play {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  min-height: 40px;
+  padding: 8px 16px 8px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #1a0d03;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgb(255 138 61 / 0.3);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s;
+
+  svg { fill: currentColor; stroke: none; }
+  &:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgb(255 138 61 / 0.4); }
+  &:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+}
+
+.tour {
+  .step { font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent); font-variant-numeric: tabular-nums; }
+  h2 { margin: 4px 0 6px; font-size: 1.3rem; font-weight: 650; letter-spacing: -0.02em; text-wrap: balance; }
+  .texto { font-size: 0.9rem; line-height: 1.5; color: #c9d1dc; }
+
+  .progreso {
+    height: 2px;
+    margin-top: 14px;
+    border-radius: 2px;
+    background: rgb(143 163 191 / 0.18);
+    overflow: hidden;
+
+    span {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+      transform-origin: left;
+      animation: progreso var(--dur) linear forwards;
+    }
+  }
+
+  .controles {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    .spacer { flex: 1; }
+  }
+
+  .ctl {
+    display: inline-grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid rgb(143 163 191 / 0.2);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.04);
+    color: var(--text);
+    cursor: pointer;
+
+    &:hover:not(:disabled) { border-color: var(--accent); }
+    &:disabled { opacity: 0.35; cursor: default; }
+    &:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  }
+
+  .link {
+    min-height: 36px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover { background: rgb(255 138 61 / 0.1); }
+    &:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  }
+}
+
+@keyframes progreso {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+// Tarjeta de bienvenida: quién es, cuánto hay y a dónde seguir. Se retira al
+// abrir el detalle para no competir con el panel.
+.intro {
+  transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &.away { opacity: 0; transform: translateY(12px); pointer-events: none; }
+
+  .who {
+    font-size: 1.05rem;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    span { display: block; margin-top: 2px; font-size: 0.8rem; font-weight: 450; letter-spacing: 0; color: var(--text-muted); }
+  }
+  .nums {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    margin-top: 12px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    b { margin-right: 4px; font-family: var(--font-mono); font-size: 1.05rem; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text); }
+  }
+  .hint { margin-top: 8px; font-size: 0.75rem; color: var(--text-muted); }
+  .links {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgb(143 163 191 / 0.14);
+    font-size: 0.85rem;
+    font-weight: 550;
+    a {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      text-decoration: none;
+      svg { width: 14px; height: 14px; }
+      &:hover { text-decoration: underline; }
+      &:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+    }
+  }
+}
+
+@media (max-width: 720px) {
+  .card {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+    padding: 12px 14px;
+  }
+  .intro .hint { display: none; }
+  .tour h2 { font-size: 1.1rem; }
+  .tour .texto { font-size: 0.85rem; }
+
+  // En celular el panel vuelve a ser hoja inferior, también en modo inmersivo.
+  :host(.inmersivo) .panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 60%;
+    border-radius: 16px 16px 0 0;
+    border-width: 1px 0 0;
+    animation-name: entra-hoja;
+  }
+}
+
+@keyframes entra-hoja {
+  from { opacity: 0; transform: translateY(24px); }
+}
+

@@ -64,3 +64,93 @@ export function bodyToHtml(body: string, existing: ReadonlySet<string>): string 
   const html = marked.parse(md, { async: false, gfm: true });
   return DOMPurify.sanitize(html, { ADD_ATTR: ['data-node'] });
 }
+
+/**
+ * Primer párrafo del cuerpo en texto plano, cortado en frase completa: es la
+ * leyenda del recorrido. Sin título, listas, énfasis ni wikilinks.
+ */
+export function resumenBreve(body: string, max = 220): string {
+  const parrafo = body
+    .replace(/^\s*#\s+[^\n]*\n?/, '')
+    .trim()
+    .split(/\n\s*\n|\n\s*[-*]\s/)[0]!
+    .replace(/\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g, (_m, t: string, a?: string) => (a ?? t).trim())
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/[*_`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (parrafo.length <= max) return parrafo;
+  // Se corta en la última frase que cabe; si ninguna cabe, en la última palabra.
+  const frases = parrafo.match(/[^.!?]+[.!?]+/g) ?? [];
+  let out = '';
+  for (const f of frases) {
+    if ((out + f).trim().length > max) break;
+    out += f;
+  }
+  return out.trim() || parrafo.slice(0, max).replace(/\s+\S*$/, '') + '…';
+}
+
+/**
+ * Lente "Enfoque IA": tecnologías de categoría `ia` y los proyectos que las
+ * usan. Sale de datos públicos del grafo (la categoría de cada tecnología).
+ */
+export function nodosIA(graph: PublicGraph): Set<string> {
+  const ia = new Set(graph.nodes.filter((n) => n.tipo === 'tecnologia' && n.props['categoria'] === 'ia').map((n) => n.id));
+  const out = new Set(ia);
+  for (const e of graph.edges) if (e.type === 'USA' && ia.has(e.target)) out.add(e.source);
+  return out;
+}
+
+export interface Parada {
+  /** Nodo al que vuela la cámara; `null` es la vista general final. */
+  id: string | null;
+  titulo: string;
+  texto: string;
+  /** Herramientas y técnicas de IA que usa el proyecto (perfil AI Engineer). */
+  ia: string[];
+}
+
+/**
+ * Paradas del recorrido guiado: los proyectos más conectados que tienen una
+ * descripción real (una nota "Pendiente: …" no se presenta a un reclutador),
+ * y al final la vista general. Todo sale del grafo público: nada se inventa.
+ */
+export function recorrido(graph: PublicGraph, max = 4): Parada[] {
+  const grado = new Map<string, number>();
+  for (const e of graph.edges) {
+    grado.set(e.source, (grado.get(e.source) ?? 0) + 1);
+    grado.set(e.target, (grado.get(e.target) ?? 0) + 1);
+  }
+  // Perfil AI Engineer: primero los proyectos que usan más tecnologías de IA;
+  // a igualdad, los más conectados.
+  const ia = new Set(graph.nodes.filter((n) => n.tipo === 'tecnologia' && n.props['categoria'] === 'ia').map((n) => n.id));
+  const usosIA = new Map<string, number>();
+  for (const e of graph.edges) if (e.type === 'USA' && ia.has(e.target)) usosIA.set(e.source, (usosIA.get(e.source) ?? 0) + 1);
+  const peso = (id: string) => (usosIA.get(id) ?? 0) * 100 + (grado.get(id) ?? 0);
+  const paradas = graph.nodes
+    .filter((n) => n.tipo === 'proyecto')
+    .map((n) => ({ n, texto: resumenBreve(n.body) }))
+    .filter((x) => x.texto && !/^pendiente\b/i.test(x.texto))
+    .sort((a, b) => peso(b.n.id) - peso(a.n.id) || a.n.id.localeCompare(b.n.id))
+    .slice(0, max)
+    .map(({ n, texto }): Parada => ({
+      id: n.id,
+      titulo: n.id,
+      texto,
+      ia: graph.edges
+        .filter((e) => e.type === 'USA' && e.source === n.id && ia.has(e.target))
+        .map((e) => e.target)
+        .sort((a, b) => a.localeCompare(b)),
+    }));
+  const proyectos = graph.nodes.filter((n) => n.tipo === 'proyecto').length;
+  const tecnologias = graph.nodes.filter((n) => n.tipo === 'tecnologia').length;
+  return [
+    ...paradas,
+    {
+      id: null,
+      titulo: 'Todo conectado',
+      ia: [],
+      texto: `${proyectos} proyectos y ${tecnologias} tecnologías, generados desde notas reales. Toca cualquier planeta para explorar.`,
+    },
+  ];
+}

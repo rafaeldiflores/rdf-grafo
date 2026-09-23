@@ -29,6 +29,8 @@ export interface Encabezado {
   links: { etiqueta: string; url: string }[];
   /** Fechas de inicio que deben coincidir en todos los CVs, p. ej. { MAZA: "May 2024" }. */
   fechas_fijas: Record<string, string>;
+  /** Textos que jamás pueden aparecer en un CV (p. ej. proyectos que no se muestran). */
+  nunca_incluir: string[];
   papel: 'Letter' | 'A4';
 }
 
@@ -99,6 +101,7 @@ export function parseEncabezado(raw: string): Encabezado {
     email: data.email.trim(),
     links: Array.isArray(data.links) ? data.links : [],
     fechas_fijas: data.fechas_fijas ?? {},
+    nunca_incluir: Array.isArray(data.nunca_incluir) ? data.nunca_incluir.map(String) : [],
     papel: data.papel === 'A4' ? 'A4' : 'Letter',
   };
 }

@@ -65,6 +65,13 @@ export function lintCv(cv: Cv, enc: Encabezado): Hallazgo[] {
     if (m) out.push({ nivel: 'error', regla: 'texto-prohibido', detalle: `${detalle} (encontrado: "${m[0]}")` });
   }
 
+  // 4b. Textos vetados por Rafa en encabezado.md (nunca_incluir).
+  for (const veto of enc.nunca_incluir) {
+    if (todo.toLowerCase().includes(veto.toLowerCase())) {
+      out.push({ nivel: 'error', regla: 'nunca-incluir', detalle: `"${veto}" nunca va en un CV` });
+    }
+  }
+
   // 5. Densidad (avisos): máximo 8 viñetas de experiencia.
   const exp = cv.secciones.find((s) => s.titulo.startsWith('EXPERIENCIA'));
   const vinetasExp = exp?.entradas.reduce((n, e) => n + e.vinetas.length, 0) ?? 0;

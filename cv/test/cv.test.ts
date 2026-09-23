@@ -12,6 +12,7 @@ email: "ana@example.com"
 links:
   - { etiqueta: "GitHub", url: "github.com/ana" }
 fechas_fijas: { MAZA: "May 2024" }
+nunca_incluir: ["Proyecto Secreto"]
 ---`);
 
 const cvOk = `---
@@ -57,6 +58,9 @@ describe('lintCv', () => {
   });
   it.each(['ESTIMADA', 'confirmado vigente al 2026-09-22', '[[marcador]]', 'Inglés C1'])('prohíbe "%s"', (txt) => {
     expect(reglas(cvOk.replace('Titulada.', `Titulada. ${txt}`))).toContain('texto-prohibido');
+  });
+  it('bloquea textos de nunca_incluir sin importar mayúsculas', () => {
+    expect(reglas(cvOk.replace('Titulada.', 'Titulada. Ver proyecto secreto.'))).toContain('nunca-incluir');
   });
   it('avisa con más de 8 viñetas de experiencia', () => {
     const muchas = Array.from({ length: 9 }, (_, i) => `- **V${i}:** x.`).join('\n');

@@ -1,0 +1,62 @@
+<header class="topbar">
+  <div class="brand">
+    <h1>rdf-grafo</h1>
+    <p>Proyectos, tecnologías y clientes de Rafael Díaz Flores</p>
+  </div>
+
+  <div class="search" role="search">
+    <label for="buscar" class="sr-only">Buscar un nodo</label>
+    <input id="buscar" type="search" placeholder="Buscar proyecto o tecnología…" autocomplete="off"
+           [value]="query()" (input)="query.set($any($event.target).value)" (keydown)="onSearchKey($event)"
+           [attr.aria-expanded]="results().length > 0" aria-controls="resultados" />
+    @if (results().length) {
+      <ul id="resultados" class="results" role="listbox">
+        @for (r of results(); track r.id) {
+          <li role="option" aria-selected="false">
+            <button type="button" (click)="pickResult(r.id)" [style.--dot]="'var(--tipo-' + r.tipo + ')'">{{ r.id }}</button>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+
+  <button type="button" class="icon-btn" (click)="themeService.toggle()"
+          [attr.aria-label]="themeService.theme() === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'">
+    {{ themeService.theme() === 'dark' ? '☀' : '☾' }}
+  </button>
+</header>
+
+<nav class="filters" aria-label="Filtrar por tipo">
+  @for (t of tipos(); track t.id) {
+    <button type="button" class="filter" [class.off]="hiddenTipos().has(t.id)"
+            [attr.aria-pressed]="!hiddenTipos().has(t.id)" (click)="toggleTipo(t.id)"
+            [style.--dot]="'var(--tipo-' + t.id + ')'">
+      {{ t.label }} <span class="count">{{ t.count }}</span>
+    </button>
+  }
+  <span class="spacer"></span>
+  <button type="button" class="filter tool" (click)="fit()">Encuadrar</button>
+  <button type="button" class="filter tool" (click)="relayout()">Reordenar</button>
+</nav>
+
+<main class="stage" [class.with-panel]="selectedNode()">
+  @switch (data.state().status) {
+    @case ('loading') {
+      <p class="state">Cargando grafo…</p>
+    }
+    @case ('error') {
+      <div class="state">
+        <p><strong>No se pudo cargar el grafo.</strong></p>
+        <p>Genera <code>graph.json</code> con <code>npm run graph</code> en <code>app/web</code>.</p>
+      </div>
+    }
+    @case ('ready') {
+      <app-graph-view class="canvas" [graph]="graph()!" [hiddenTipos]="hiddenTipos()" [selectedId]="selectedId()"
+                      [matchIds]="matchIds()" [theme]="themeService.theme()" (nodeSelect)="select($event)" />
+      @if (selectedNode(); as node) {
+        <app-detail-panel class="panel" role="complementary" aria-labelledby="panel-title"
+                          [graph]="graph()!" [node]="node" (select)="select($event)" (close)="select(null)" />
+      }
+    }
+  }
+</main>

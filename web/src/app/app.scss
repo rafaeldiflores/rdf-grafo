@@ -1,0 +1,156 @@
+:host {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  grid-template-columns: minmax(0, 1fr); // evita que los filtros ensanchen la página
+  height: 100dvh;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.brand {
+  min-width: 0;
+
+  h1 { margin: 0; font-size: 1.1rem; letter-spacing: -0.01em; }
+  p { margin: 2px 0 0; font-size: 0.8rem; color: var(--text-muted); }
+}
+
+.search {
+  position: relative;
+  flex: 1;
+  max-width: 420px;
+  margin-left: auto;
+
+  input {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--text);
+    font: inherit;
+
+    &:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  }
+}
+
+.results {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 40px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &::before { content: ''; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--dot); }
+    &:hover, &:focus-visible { background: var(--surface-2); }
+  }
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+
+  .spacer { flex: 1; }
+}
+
+.filter {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+
+  &::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--dot); }
+  .count { color: var(--text-muted); }
+  &.off { opacity: 0.45; text-decoration: line-through; }
+  &.tool::before { display: none; }
+  &:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+}
+
+.stage {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 0;
+
+  &.with-panel { grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); }
+}
+
+.canvas { min-height: 0; }
+
+.panel {
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.state {
+  place-self: center;
+  max-width: 36ch;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+// Celular: el panel pasa a ser una hoja inferior sobre el grafo.
+@media (max-width: 720px) {
+  .brand p { display: none; }
+  .search { max-width: none; }
+
+  .stage.with-panel { grid-template-columns: 1fr; }
+
+  .panel {
+    position: absolute;
+    z-index: 5;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 60%;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+    border-radius: 16px 16px 0 0;
+    box-shadow: var(--shadow);
+  }
+}

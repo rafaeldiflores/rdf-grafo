@@ -1,0 +1,47 @@
+<header class="head">
+  <div>
+    <span class="tipo" [style.--dot]="'var(--tipo-' + node().tipo + ')'">{{ tipoLabel() }}</span>
+    <h2 id="panel-title">{{ node().id }}</h2>
+  </div>
+  <button type="button" class="icon-btn" (click)="close.emit()" aria-label="Cerrar detalle">✕</button>
+</header>
+
+@if (props().length) {
+  <dl class="props">
+    @for (p of props(); track p.key) {
+      <div>
+        <dt>{{ p.label }}</dt>
+        <dd>
+          @if (isUrl(p.value)) {
+            <a [href]="p.value" target="_blank" rel="noopener noreferrer">{{ p.value.replace('https://', '') }}</a>
+          } @else {
+            {{ display(p.value) }}
+          }
+        </dd>
+      </div>
+    }
+  </dl>
+}
+
+@if (bodyHtml(); as html) {
+  <div class="body" [innerHTML]="html" (click)="onBodyClick($event)"></div>
+}
+
+@for (g of groups(); track g.label) {
+  <section class="group">
+    <h3>{{ g.label }} <span class="count">{{ g.items.length }}</span></h3>
+    <ul>
+      @for (item of g.items; track item.node.id) {
+        <li>
+          <button type="button" class="chip" (click)="select.emit(item.node.id)"
+                  [style.--dot]="'var(--tipo-' + item.node.tipo + ')'"
+                  [class.destacado]="item.destacado"
+                  [attr.aria-label]="item.node.id + (item.destacado ? ' (destacada)' : '')">
+            {{ item.node.id }}
+            @if (item.destacado) { <span aria-hidden="true">★</span> }
+          </button>
+        </li>
+      }
+    </ul>
+  </section>
+}

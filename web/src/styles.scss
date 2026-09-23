@@ -1,0 +1,97 @@
+// Tokens de diseño. Cytoscape lee los colores desde aquí (getComputedStyle),
+// así que el tema claro/oscuro se define en un solo lugar.
+:root {
+  color-scheme: light;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;
+  --border: #dde1e7;
+  --text: #16181d;
+  --text-muted: #5b6270;
+  --edge: #b3bac5;
+  --accent: #e8590c;
+  --shadow: 0 8px 24px rgb(16 24 40 / 0.12);
+
+  --tipo-proyecto: #2563eb;
+  --tipo-tecnologia: #0d9488;
+  --tipo-persona: #d97706;
+  --tipo-canal: #7c3aed;
+  --tipo-area: #db2777;
+  --tipo-aprendizaje: #65a30d;
+  --tipo-pendiente: #9ca3af;
+}
+
+@mixin dark {
+  color-scheme: dark;
+  --bg: #0f1115;
+  --surface: #161920;
+  --surface-2: #1e222b;
+  --border: #2b303b;
+  --text: #e8eaee;
+  --text-muted: #9aa2b1;
+  --edge: #4a5160;
+  --accent: #ff8a3d;
+  --shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+
+  --tipo-proyecto: #60a5fa;
+  --tipo-tecnologia: #2dd4bf;
+  --tipo-persona: #fbbf24;
+  --tipo-canal: #a78bfa;
+  --tipo-area: #f472b6;
+  --tipo-aprendizaje: #a3e635;
+  --tipo-pendiente: #6b7280;
+}
+
+// Sin preferencia guardada, sigue al sistema; `data-theme` manda si existe.
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) { @include dark; }
+}
+:root[data-theme='dark'] { @include dark; }
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden; // app de pantalla completa: solo el panel tiene scroll
+}
+
+a { color: var(--accent); }
+
+.icon-btn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 1.05rem;
+  cursor: pointer;
+
+  &:hover { border-color: var(--accent); }
+  &:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

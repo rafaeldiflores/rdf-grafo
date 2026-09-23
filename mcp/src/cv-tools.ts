@@ -93,7 +93,8 @@ export class CvStore {
     const rutaPdf = dentroDe(dir, `${base}.pdf`);
     writeFileSync(dentroDe(dir, `${base}.md`), markdown);
     writeFileSync(rutaPdf, pdf);
-    return { pdf: rutaPdf, archivo: `${base}.pdf` };
+    // base64: para que una interfaz sin acceso al disco (el artefacto) pueda ofrecer la descarga.
+    return { pdf: rutaPdf, archivo: `${base}.pdf`, base64: pdf.toString('base64') };
   }
 
   /** Frontmatter de todas las postulaciones (para el Tracker del artefacto). */

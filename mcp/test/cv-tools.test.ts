@@ -106,5 +106,6 @@ describe.skipIf(!hayChrome)('validar y generar PDF', () => {
     expect(r.pdf).toContain(join(vault, 'cv', 'generados'));
     expect(existsSync(join(vault, 'cv/generados/fuera.pdf'))).toBe(true);
     expect(existsSync(join(vault, 'cv/generados/fuera.md'))).toBe(true);
+    expect(Buffer.from(r.base64, 'base64').subarray(0, 5).toString()).toBe('%PDF-');
   }, 60_000);
 });

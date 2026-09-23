@@ -21,10 +21,10 @@ describe('parseNote', () => {
   });
 
   it('normaliza tildes descompuestas (NFD) a NFC en id y datos', () => {
-    const nfd = 'Búsqueda de trabajo'.normalize('NFD');
-    const n = parseNote(`areas/${nfd}.md`, note(`tipo: area\nparte_de: "[[${nfd}]]"`));
-    expect(n?.id).toBe('Búsqueda de trabajo'.normalize('NFC'));
-    expect(extractLinks(n?.data.parte_de).links).toEqual(['Búsqueda de trabajo'.normalize('NFC')]);
+    const nfd = 'Canción de acción'.normalize('NFD');
+    const n = parseNote(`notas/${nfd}.md`, note(`tipo: area\nparte_de: "[[${nfd}]]"`));
+    expect(n?.id).toBe('Canción de acción'.normalize('NFC'));
+    expect(extractLinks(n?.data.parte_de).links).toEqual(['Canción de acción'.normalize('NFC')]);
   });
 
   it('no comparte estado entre notas con igual contenido (caché de gray-matter)', () => {

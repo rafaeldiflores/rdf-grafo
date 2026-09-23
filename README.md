@@ -1,7 +1,13 @@
-# Grafo de proyectos
+# rdf-grafo
+
+> **RDF** son mis iniciales (Rafael Díaz Flores) y también el estándar W3C para
+> describir knowledge graphs. Este repo es el segundo sentido aplicado al primero:
+> un grafo de todo lo que he construido.
 
 Knowledge graph de mis proyectos, tecnologías, aprendizajes y clientes,
 generado desde una bóveda de Obsidian (privada) y publicado como sitio.
+Además de mostrarse, sirve para **propagar cambios**: cuando un proyecto adopta
+una tecnología, `impacto` dice qué portafolio, sitio o CV hay que actualizar.
 
 ```
 vault (Obsidian, privado) ──build-graph──▶ graph.json ──▶ Neo4j AuraDB ──▶ MCP (Claude Code)

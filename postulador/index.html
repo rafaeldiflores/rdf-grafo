@@ -145,6 +145,10 @@
   .oferta .avisos { display: flex; flex-wrap: wrap; gap: 6px; }
   .oferta .actions .btn { padding: 6px 12px; font-size: 0.85rem; }
   .oferta.invalida { border-style: dashed; }
+  .dia { margin-top: 18px; }
+  .dia:first-child { margin-top: 6px; }
+  .dia > h3 { margin-bottom: 8px; }
+  .dia h4 { margin: 10px 0 6px; font-size: 0.82rem; font-weight: 500; color: var(--muted); }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
@@ -256,8 +260,9 @@
       <button class="btn ghost" id="refrescar-bandeja" type="button">Actualizar</button>
     </div>
     <p class="status" id="st-bandeja" role="status"></p>
-    <ul class="ofertas" id="ofertas"></ul>
-    <details id="ocultas-det" hidden><summary class="muted" id="ocultas-sum"></summary><ul class="ofertas" id="ocultas" style="margin-top:10px"></ul></details>
+    <div id="ofertas"></div>
+    <details id="postuladas-det" hidden><summary class="muted" id="postuladas-sum"></summary><div id="postuladas" style="margin-top:10px"></div></details>
+    <details id="descartadas-det" hidden><summary class="muted" id="descartadas-sum"></summary><div id="descartadas" style="margin-top:10px"></div></details>
   </section>
 
   <!-- ───────────── Tracker ───────────── -->
@@ -701,7 +706,7 @@ ${actual.markdown}`,
   const DRIVE = "Google Drive";
   const BANDEJA_ID = "1qp3dgY26lCUrFIVqkH2UUw5RMLdBy4XHcEF6d-soQn4";
   // texto_completo y nivel llegaron con la v2 de la skill: en filas anteriores quedan vacías.
-  const COLUMNAS = ["id", "detectada", "publicada", "empresa", "cargo", "modalidad", "ubicacion", "fuente", "compatibilidad", "texto", "texto_completo", "nivel"];
+  const COLUMNAS = ["id", "detectada", "publicada", "empresa", "cargo", "modalidad", "ubicacion", "fuente", "compatibilidad", "texto", "texto_completo", "nivel", "rutina"];
   const textoCompleto = (o) => plano(o.texto_completo).startsWith("si");
   const FECHA = /^\d{4}-\d{2}-\d{2}$/;
   const plano = (s) => String(s ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
@@ -803,6 +808,7 @@ ${actual.markdown}`,
     const acc = document.createElement("div"); acc.className = "actions";
     const b = (txt, cls, fn) => { const x = document.createElement("button"); x.type = "button"; x.className = "btn " + cls; x.textContent = txt; x.onclick = fn; acc.append(x); return x; };
     b("Usar esta oferta", "", () => adaptarDesdeBandeja(o)).disabled = !o.texto || !sample;
+    if (!o.tracker && o.empresa && o.cargo) b("Ya postulé", "ghost", (ev) => yaPostule(o, ev.currentTarget));
     if (db && /^https?:\/\//.test(o.id)) {
       const d = descartadas.has(idOferta(o.id));
       b(d ? "Restaurar" : "Descartar", "ghost", (ev) => alternarDescarte(o, ev.currentTarget));
@@ -812,19 +818,77 @@ ${actual.markdown}`,
     return li;
   }
 
+  // Agrupa por día en que Spark la encontró y, dentro del día, por rutina (10:00 / 18:00).
+  const RUTINAS = [["matutina", "Rutina de la mañana (10:00)"], ["vespertina", "Rutina de la tarde (18:00)"], ["manual", "Búsqueda manual"]];
+  function etiquetaDia(f) {
+    if (!FECHA.test(f)) return "Sin fecha";
+    const dias = Math.round((new Date(hoy()) - new Date(f)) / 864e5);
+    const larga = new Date(f + "T12:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "short" });
+    return dias === 0 ? `Hoy · ${larga}` : dias === 1 ? `Ayer · ${larga}` : larga.charAt(0).toUpperCase() + larga.slice(1);
+  }
+  function porDia(lista) {
+    const cont = document.createElement("div");
+    const dias = [...new Set(lista.map((o) => o.detectada || ""))].sort().reverse();
+    for (const d of dias) {
+      const sec = document.createElement("section"); sec.className = "dia";
+      const del = lista.filter((o) => (o.detectada || "") === d).sort((a, b) => String(b.publicada).localeCompare(String(a.publicada)));
+      const h = document.createElement("h3"); h.textContent = `${etiquetaDia(d)} — ${del.length} oferta${del.length > 1 ? "s" : ""}`; sec.append(h);
+      // Filas anteriores a la columna `rutina` no la traen: se muestran sin subtítulo.
+      const grupos = [...RUTINAS.map(([k, t]) => [t, del.filter((o) => plano(o.rutina) === k)]), ["", del.filter((o) => !RUTINAS.some(([k]) => plano(o.rutina) === k))]];
+      for (const [titulo, os] of grupos) {
+        if (!os.length) continue;
+        if (titulo) { const h4 = document.createElement("h4"); h4.textContent = titulo; sec.append(h4); }
+        const ul = document.createElement("ul"); ul.className = "ofertas"; ul.append(...os.map(tarjetaOferta)); sec.append(ul);
+      }
+      cont.append(sec);
+    }
+    return cont;
+  }
+
   function pintarBandeja() {
-    const orden = (a, b) => String(b.publicada || b.detectada).localeCompare(String(a.publicada || a.detectada));
-    const ocultar = (o) => o.tracker || descartadas.has(idOferta(o.id));
-    const visibles = ofertas.filter((o) => !ocultar(o)).sort(orden);
-    const ocultas = ofertas.filter(ocultar).sort(orden);
-    $("ofertas").replaceChildren(...visibles.map(tarjetaOferta));
-    $("ocultas").replaceChildren(...ocultas.map(tarjetaOferta));
-    $("ocultas-det").hidden = !ocultas.length;
-    $("ocultas-sum").textContent = `${ocultas.length} ya en tu Tracker o descartadas`;
+    const descartada = (o) => descartadas.has(idOferta(o.id));
+    const visibles = ofertas.filter((o) => !o.tracker && !descartada(o));
+    const postuladas = ofertas.filter((o) => o.tracker);
+    const desc = ofertas.filter((o) => !o.tracker && descartada(o));
+    $("ofertas").replaceChildren(porDia(visibles));
+    $("postuladas").replaceChildren(porDia(postuladas));
+    $("descartadas").replaceChildren(porDia(desc));
+    $("postuladas-det").hidden = !postuladas.length;
+    $("postuladas-sum").textContent = `${postuladas.length} ya en tu Tracker`;
+    $("descartadas-det").hidden = !desc.length;
+    $("descartadas-sum").textContent = `${desc.length} descartada${desc.length > 1 ? "s" : ""}`;
     const malas = ofertas.filter((o) => o.avisos.length).length;
     status($("st-bandeja"), ofertas.length
       ? `${visibles.length} por revisar${malas ? ` · ${malas} con datos incompletos (Spark no cumplió el formato)` : ""}.`
       : "La Bandeja está vacía: tus rutinas de Spark aún no registran ofertas.", ofertas.length ? "ok" : "");
+  }
+
+  /**
+   * Postulaste por el portal sin pasar por "Adaptar": la registra en el Tracker
+   * (vault) como Postulado, con la URL del aviso para reconocerla después.
+   * Dos clics (el primero pide confirmar) porque escribe en el vault.
+   */
+  async function yaPostule(o, btn) {
+    if (btn.dataset.confirmar !== "1") {
+      btn.dataset.confirmar = "1"; btn.textContent = "¿Registrar como Postulado?";
+      setTimeout(() => { if (btn.isConnected && !btn.disabled) { btn.dataset.confirmar = ""; btn.textContent = "Ya postulé"; } }, 5000);
+      return;
+    }
+    btn.disabled = true; btn.textContent = "Registrando…";
+    try {
+      const r = await call("postulacion_guardar", {
+        empresa: o.empresa, cargo: o.cargo, estado: "Postulado", fecha: hoy(),
+        canal: o.fuente || undefined, url: o.id, proxima_accion: "Esperar respuesta", proxima_fecha: masDias(14),
+        notas: "Registrada desde la Bandeja, sin CV adaptado en el Postulador.",
+      });
+      postulaciones.push({ empresa: o.empresa, cargo: o.cargo, estado: "Postulado", url: o.id, nota: r.nota });
+      o.tracker = enTracker(o);
+      pintarBandeja();
+      status($("st-bandeja"), `${o.empresa}: registrada en tu Tracker como Postulado.`, "ok");
+    } catch (e) {
+      btn.disabled = false; btn.dataset.confirmar = ""; btn.textContent = "Ya postulé";
+      status($("st-bandeja"), mcpMsg(e), "err");
+    }
   }
 
   async function alternarDescarte(o, btn) {

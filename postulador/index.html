@@ -134,7 +134,7 @@
   <header class="top">
     <div class="brand">
       <h1>Postulador</h1>
-      <p>CV ATS de 1 página desde tu BASE, y el Tracker de postulaciones — todo en tu vault local.</p>
+      <p>CV ATS de 1 página desde tu BASE, y el Tracker de postulaciones — todo en tu vault privado, desde cualquier dispositivo.</p>
     </div>
     <nav class="tabs" role="tablist" aria-label="Secciones">
       <button role="tab" id="tab-postular" aria-selected="true" aria-controls="view-postular">Postular</button>
@@ -243,7 +243,8 @@
 
 <script>
 (() => {
-  const HOST = "host:grafo";
+  // Nombre visible del conector remoto (app/postulador-mcp) en claude.ai → Conectores.
+  const HOST = "Postulador";
   const ESTADOS = ["Postulado", "Contacto", "Prueba tecnica", "Entrevista", "Oferta", "Descartado", "No enviada"];
   const AVANCE = ["Contacto", "Prueba tecnica", "Entrevista", "Oferta"];
   const $ = (id) => document.getElementById(id);
@@ -265,11 +266,12 @@
 
   const mcpMsg = (e) => {
     switch (e?.code) {
-      case "server_not_connected": return "No encuentro tu servidor local “grafo”. Abre este artefacto en la app de escritorio de Claude, en tu PC, con la app reiniciada tras configurar el MCP.";
-      case "cancelled": return "Cancelaste la confirmación en la app; no se hizo nada.";
-      case "not_in_manifest": return "Esta página no tiene permiso para usar “grafo”. Revísalo en los permisos del artefacto.";
-      case "tool_error": return (e.message || "La herramienta informó un error.").replace(/^Error:\s*/, "");
-      case "server_unavailable": return "El servidor local no respondió a tiempo. Vuelve a intentarlo.";
+      case "server_not_connected": return "No encuentro el conector “Postulador”. Agrégalo en claude.ai → Configuración → Conectores.";
+      case "selection_required": return "Tienes más de un conector llamado “Postulador”; elige uno en el aviso de Claude.";
+      case "needs_reauth": return "La sesión del conector expiró. Reconecta “Postulador” en claude.ai → Configuración → Conectores.";
+      case "not_in_manifest": return "Esta página no tiene permiso para usar “Postulador”. Revísalo en los permisos del artefacto.";
+      case "tool_error": return (e.message || e.result?.content?.[0]?.text || "La herramienta informó un error.").replace(/^Error:\s*/, "");
+      case "server_unavailable": return "El servidor del Postulador no respondió a tiempo. Vuelve a intentarlo.";
       default: return "No se pudo completar la acción (" + (e?.code || "error") + ").";
     }
   };
@@ -452,7 +454,7 @@ ${actual.markdown}`,
 
   async function generar() {
     $("generar").disabled = true;
-    status($("st-pdf"), "Generando el PDF en tu vault (la app puede pedirte confirmar)…");
+    status($("st-pdf"), "Generando el PDF y guardándolo en tu vault…");
     try {
       const nombre = `CV_RDF_${slug(actual.empresa || "Empresa")}_${slug(actual.cargo || actual.perfil)}_${hoy().replaceAll("-", "")}`;
       pdf = await call("cv_generar_pdf", { markdown: actual.markdown, nombre });
@@ -584,7 +586,7 @@ ${actual.markdown}`,
     const use = (n) => (window.claude?.use ? window.claude.use(n).catch(() => null) : Promise.resolve(null));
     [mcp, sample, downloads] = await Promise.all([use("mcp"), use("sample"), use("downloads")]);
     if (!sample) $("adaptar").disabled = true;
-    if (!mcp) { banner("Esta vista no puede usar tu servidor local. Abre el Postulador en la app de escritorio de Claude en tu PC."); return; }
+    if (!mcp) { banner("Esta vista no puede usar conectores. Abre el Postulador en claude.ai con tu sesión iniciada."); return; }
     try {
       ctx = await call("cv_contexto");
       for (const p of ctx.perfiles) $("perfil").add(new Option(p.perfil, p.perfil));

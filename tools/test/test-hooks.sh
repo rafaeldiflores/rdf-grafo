@@ -49,6 +49,7 @@ check "conserva claves previas del settings" 'grep -q "Bash(npm test)" "$TMP/rep
 check "un solo SessionStart y un solo SessionEnd" '[ "$(grep -c start.sh "$TMP/repo/.claude/settings.local.json")" = 1 ] && [ "$(grep -c end.sh "$TMP/repo/.claude/settings.local.json")" = 1 ]'
 check "vault en additionalDirectories" 'grep -q additionalDirectories "$TMP/repo/.claude/settings.local.json"'
 check ".session-start en .gitignore (una vez)" '[ "$(grep -cxF .claude/.session-start "$TMP/repo/.gitignore")" = 1 ]'
+check "modo local ignora settings y scripts personales" 'grep -qxF .claude/settings.local.json "$TMP/repo/.gitignore" && grep -qxF .claude/hooks/ "$TMP/repo/.gitignore"'
 check "comando /avance instalado" '[ -f "$TMP/repo/.claude/commands/avance.md" ]'
 check "nota inexistente → error" '! bash "$TOOLS/install-hooks.sh" "$TMP/repo" NoExiste > /dev/null 2>&1'
 

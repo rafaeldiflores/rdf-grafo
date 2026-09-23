@@ -58,11 +58,17 @@ cp "$TOOLS_DIR/plantillas/commands/avance.md" "$REPO/.claude/commands/avance.md"
 VAULT_NATIVE="$(cygpath -m "$VAULT" 2>/dev/null || echo "$VAULT")"
 node "$TOOLS_DIR/lib/merge-settings.mjs" "$REPO/.claude/$SETTINGS_NAME" "$VAULT_NATIVE"
 
-# .gitignore: estado de sesión, config local y log. Solo agrega lo que falte.
+# .gitignore: estado de sesión, config local y log. En modo local (por defecto)
+# también los scripts y el settings personal: llevan rutas de esta máquina y no
+# deben commitearse por accidente. Solo agrega lo que falte.
 IGNORE="$REPO/.gitignore"
 touch "$IGNORE"
+lines=(".claude/.session-start" ".claude/hooks/grafo.env" ".claude/hooks/grafo.log")
+if [ "$SETTINGS_NAME" = "settings.local.json" ]; then
+  lines+=(".claude/settings.local.json" ".claude/hooks/" ".claude/commands/avance.md")
+fi
 added=0
-for line in ".claude/.session-start" ".claude/hooks/grafo.env" ".claude/hooks/grafo.log"; do
+for line in "${lines[@]}"; do
   if ! grep -qxF "$line" "$IGNORE"; then
     [ "$added" -eq 0 ] && { [ -s "$IGNORE" ] && [ -n "$(tail -c1 "$IGNORE")" ] && echo >> "$IGNORE"; echo "# Hooks del grafo (Claude Code)" >> "$IGNORE"; }
     echo "$line" >> "$IGNORE"

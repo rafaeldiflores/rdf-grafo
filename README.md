@@ -1,0 +1,50 @@
+# Grafo de proyectos
+
+Knowledge graph de mis proyectos, tecnologías, aprendizajes y clientes,
+generado desde una bóveda de Obsidian (privada) y publicado como sitio.
+
+```
+vault (Obsidian, privado) ──build-graph──▶ graph.json ──▶ Neo4j AuraDB ──▶ MCP (Claude Code)
+                                  └──--public──▶ graph.public.json ──▶ web (Angular + Cytoscape)
+```
+
+## `ingest/`
+
+TypeScript/Node. Lee las notas markdown, convierte los `[[links]]` del
+frontmatter en aristas y exporta el grafo.
+
+```bash
+cd ingest
+npm install
+npm run build-graph              # grafo completo → out/graph.json (privado, no se commitea)
+npm run build-graph -- --public  # solo lo público → out/graph.public.json
+npm run impacto -- MAZA          # qué hay que revisar cuando cambia un nodo
+npm run sync-neo4j               # MERGE idempotente en Neo4j (credenciales en .env)
+npm test
+```
+
+La ruta al vault se toma de `--vault`, de `VAULT_PATH` o de `../vault`.
+
+### Mapeo frontmatter → grafo
+
+| Campo           | Relación          |
+|-----------------|-------------------|
+| `stack`         | `USA`             |
+| `parte_de`      | `PARTE_DE`        |
+| `cliente`       | `PARA_CLIENTE`    |
+| `relacionado`   | `RELACIONADO_CON` |
+| `cubre`         | `CUBRE`           |
+| `plataforma`    | `EN_PLATAFORMA`   |
+| `equipo`        | `CON_EQUIPO`      |
+| `muestra`       | `MUESTRA`         |
+
+`stack_destacado` marca `destacado: true` en las aristas `USA` curadas.
+Un link a una nota inexistente crea un nodo `pendiente`.
+
+### Exportación pública (fail-closed)
+
+- Solo nodos con `visibilidad: publico`, más las tecnologías conectadas a ellos.
+- Una arista sale solo si sus dos extremos salen.
+- Propiedades por lista blanca; el cuerpo sale sin la sección `## Bitácora` y
+  con los links a notas privadas redactados.
+- Cubierto por tests de casos borde y por invariantes sobre 300 grafos aleatorios.

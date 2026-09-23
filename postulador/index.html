@@ -700,7 +700,9 @@ ${actual.markdown}`,
   // hasta que Rafa adapta o registra la oferta en el flujo normal.
   const DRIVE = "Google Drive";
   const BANDEJA_ID = "1qp3dgY26lCUrFIVqkH2UUw5RMLdBy4XHcEF6d-soQn4";
-  const COLUMNAS = ["id", "detectada", "publicada", "empresa", "cargo", "modalidad", "ubicacion", "fuente", "compatibilidad", "texto"];
+  // texto_completo y nivel llegaron con la v2 de la skill: en filas anteriores quedan vacías.
+  const COLUMNAS = ["id", "detectada", "publicada", "empresa", "cargo", "modalidad", "ubicacion", "fuente", "compatibilidad", "texto", "texto_completo", "nivel"];
+  const textoCompleto = (o) => plano(o.texto_completo).startsWith("si");
   const FECHA = /^\d{4}-\d{2}-\d{2}$/;
   const plano = (s) => String(s ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
   let ofertas = [];       // filas válidas o no, con sus avisos
@@ -789,6 +791,8 @@ ${actual.markdown}`,
     if (o.compatibilidad) { const c = document.createElement("div"); c.className = "c"; c.textContent = o.compatibilidad; li.append(c); }
     const av = document.createElement("div"); av.className = "avisos";
     const chip = (cls, txt) => { const s = document.createElement("span"); s.className = "chip" + (cls ? " " + cls : ""); s.textContent = txt; av.append(s); };
+    if (o.nivel && plano(o.nivel) !== "no indica") chip(plano(o.nivel) === "senior" ? "debil" : "", o.nivel);
+    if (o.texto && !textoCompleto(o)) chip("debil", plano(o.texto_completo) === "no" ? "texto parcial" : "texto sin verificar");
     if (o.tracker) chip("", `En tu Tracker: ${o.tracker.estado || "registrada"}`);
     if (descartadas.has(idOferta(o.id))) chip("debil", "Descartada");
     for (const a of o.avisos) chip("miss", a);
@@ -838,7 +842,9 @@ ${actual.markdown}`,
     $("oferta").value = [`${o.cargo} — ${o.empresa}`, [o.modalidad, o.ubicacion].filter(Boolean).join(" · "), "", o.texto].join("\n").trim();
     $("url").value = /^https?:\/\//.test(o.id) ? o.id : "";
     mostrar("postular");
-    status($("st-adaptar"), "Oferta cargada desde la Bandeja. Spark suele dejar un extracto: si el aviso es más largo, pega el texto completo (link en “Ver aviso”) para mejores palabras clave.");
+    status($("st-adaptar"), textoCompleto(o)
+      ? "Oferta cargada desde la Bandeja (texto completo, según Spark). Revísalo y adapta."
+      : "Oferta cargada desde la Bandeja. El texto puede estar incompleto: si el aviso es más largo, pega el texto completo (link en “Ver aviso”) para mejores palabras clave.");
     $("oferta").focus();
   }
 

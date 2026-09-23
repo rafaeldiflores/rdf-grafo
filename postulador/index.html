@@ -92,6 +92,11 @@
   .findings li { font-size: 0.88rem; padding: 6px 10px; border-radius: 6px; background: var(--warn-soft); }
   .findings li.error { background: var(--err-soft); }
   .findings li.okmsg { background: var(--ok-soft); }
+  .findings li.pend { background: var(--accent-soft); }
+  .findings .sug { display: block; margin-top: 3px; color: var(--muted); }
+  .trazas { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 0.85rem; }
+  .trazas .ids { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
+  details summary { cursor: pointer; font-size: 0.85rem; margin-top: 8px; }
 
   .preview-shell { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow: hidden; }
   .preview-empty { display: grid; place-items: center; min-height: 360px; text-align: center; color: var(--muted); padding: 24px; }
@@ -175,6 +180,11 @@
             <div class="chips" id="kw" style="margin-top:8px"></div>
           </div>
           <ul class="findings" id="hallazgos"></ul>
+          <div>
+            <h3>Hechos contra tu BASE</h3>
+            <ul class="findings" id="hechos" style="margin-top:8px"></ul>
+            <details id="hechos-det" hidden><summary class="muted">Ver cada afirmación y su logro</summary><ul class="trazas" id="trazas"></ul></details>
+          </div>
           <div class="actions">
             <button class="btn ghost" id="ajustar" type="button">Ajustar a las reglas</button>
             <button class="btn" id="generar" type="button">Generar PDF</button>
@@ -345,6 +355,7 @@
     if (oferta.length < 80) return status($("st-adaptar"), "Pega el texto completo de la oferta (al menos unas líneas).", "err");
     ctl = new AbortController();
     $("adaptar").disabled = true; $("detener").hidden = false;
+    revisionN++; // descarta la revisión de hechos del CV anterior si aún no termina
     pdf = null; $("descargar").hidden = true; $("paso3").hidden = true; status($("st-pdf"), "");
     try {
       status($("st-adaptar"), "Leyendo tu BASE y tus CVs base…");
@@ -388,7 +399,70 @@ ${oferta.slice(0, 9000)}`,
     actual.validacion = v;
     pintarRevision();
     pintarPreview(v.html);
+    revisarHechos(); // sin await: el PDF no espera a esta revisión (es una segunda opinión, no el verificador)
   }
+
+  // ── Revisión de hechos: cada afirmación del CV contra su logro de la BASE ──
+  // El verificador (lint.ts) no ve el contenido: cifras sin respaldo, métricas ESTIMADA
+  // o lo que el `contexto` de un logro prohíbe decir. Esto lo revisa Claude en un pedido
+  // aparte, sin el CV base ni la oferta, para que no justifique lo que acaba de escribir.
+  let revisionN = 0; // cada cambio del CV lanza una revisión; solo vale la última
+  async function revisarHechos() {
+    const n = ++revisionN;
+    actual.hechos = null;
+    pintarHechos("Revisando cada afirmación contra tu BASE…");
+    try {
+      const r = await sample.json(
+        `Eres el revisor de hechos de los CVs de Rafa. Compara el CV con la BASE de experiencia: es la única fuente de verdad (lee sus REGLAS DE USO y el campo "contexto" de cada logro).
+
+Revisa el RESUMEN PROFESIONAL (cada afirmación con cifra, estado o resultado concreto) y CADA viñeta de EXPERIENCIA PROFESIONAL. Para cada una indica los id de logro de la BASE que la respaldan y si cumple:
+- toda cifra existe en ese logro, sin redondear hacia arriba ni sumar;
+- no imprime una métrica marcada ESTIMADA;
+- respeta el "contexto" del logro (lo que se puede y no se puede decir) y las REGLAS DE USO;
+- no afirma tecnologías, resultados, roles ni estados que la BASE no tenga.
+El mismo hecho con otra redacción está bien. No evalúes estilo, formato ni largo: eso lo revisa otro verificador.
+
+Responde SOLO JSON: {"items": [{"texto": "etiqueta en negrita de la viñeta, o 'Resumen: <primeras palabras>'", "ids": ["id-del-logro"], "ok": true, "problema": "vacío si ok; si no, qué dice el CV frente a lo que dice la BASE", "sugerencia": "redacción corregida con solo hechos de la BASE; vacía si ok"}]}
+
+=== BASE DE EXPERIENCIA ===
+${ctx.base}
+
+=== CV ===
+${actual.markdown}`,
+        { cache: false },
+      );
+      if (n !== revisionN) return;
+      if (!Array.isArray(r?.items)) throw { code: "invalid_json" };
+      actual.hechos = r.items;
+      pintarHechos();
+    } catch (e) {
+      if (n === revisionN) pintarHechos("No se pudo revisar los hechos: " + sampleMsg(e), true);
+    }
+  }
+
+  function pintarHechos(msg, err = false) {
+    const ul = $("hechos"), det = $("hechos-det"), tr = $("trazas");
+    ul.replaceChildren(); tr.replaceChildren();
+    const li = (cls, txt) => { const x = document.createElement("li"); x.className = cls; x.textContent = txt; ul.append(x); return x; };
+    det.hidden = !actual.hechos;
+    if (!actual.hechos) { li(err ? "error" : "pend", msg); return mostrarAjustar(); }
+    const malos = actual.hechos.filter((h) => !h.ok);
+    if (!malos.length) li("okmsg", `✓ Las ${actual.hechos.length} afirmaciones revisadas tienen respaldo en tu BASE.`);
+    for (const h of malos) {
+      const x = li("error", `✗ ${h.texto}: ${h.problema}`);
+      if (h.sugerencia) { const s = document.createElement("span"); s.className = "sug"; s.textContent = "Sugerencia: " + h.sugerencia; x.append(s); }
+    }
+    for (const h of actual.hechos) {
+      const x = document.createElement("li");
+      x.textContent = `${h.ok ? "✓" : "✗"} ${h.texto} `;
+      const ids = document.createElement("span"); ids.className = "ids"; ids.textContent = (h.ids || []).join(", ") || "sin logro";
+      x.append(ids); tr.append(x);
+    }
+    mostrarAjustar();
+  }
+
+  const problemasHechos = () => (actual?.hechos || []).filter((h) => !h.ok);
+  const mostrarAjustar = () => { $("ajustar").hidden = !actual.validacion.hallazgos.length && !problemasHechos().length; };
 
   function pintarRevision() {
     const a = actual, v = a.validacion;
@@ -400,7 +474,7 @@ ${oferta.slice(0, 9000)}`,
     const items = v.hallazgos.length ? v.hallazgos : [{ nivel: "okmsg", detalle: "Pasa todas las reglas." }];
     for (const h of items) { const li = document.createElement("li"); li.className = h.nivel === "error" ? "error" : h.nivel === "okmsg" ? "okmsg" : ""; li.textContent = (h.nivel === "error" ? "✗ " : h.nivel === "okmsg" ? "✓ " : "⚠ ") + h.detalle; ul.append(li); }
     $("generar").disabled = !v.ok;
-    $("ajustar").hidden = v.hallazgos.length === 0;
+    mostrarAjustar();
     const libres = -v.lineasDeMas;
     $("pv-medidas").textContent = `${v.paginas} pág. · ${libres >= 0 ? `~${libres} líneas libres` : `sobran ~${v.lineasDeMas}`} · resumen ${v.lineasResumen} líneas`;
     const meta = $("pv-meta"); meta.hidden = false; meta.replaceChildren();
@@ -435,8 +509,10 @@ ${oferta.slice(0, 9000)}`,
     try {
       const v = actual.validacion;
       const r = await sample.json(
-        `Corrige este CV para que pase TODAS las reglas y quepa en 1 página, cambiando lo mínimo. Problemas detectados por el verificador:
+        `Corrige este CV para que pase TODAS las reglas y quepa en 1 página, cambiando lo mínimo. Problemas detectados por el verificador y por la revisión de hechos contra la BASE:
 ${v.hallazgos.map((h) => "- " + h.detalle).join("\n")}
+${problemasHechos().map((h) => `- Hecho sin respaldo en "${h.texto}": ${h.problema}${h.sugerencia ? ` (sugerencia: ${h.sugerencia})` : ""}`).join("\n")}
+${problemasHechos().length ? `Para los hechos, usa solo lo que dice la BASE; si no hay respaldo, borra la afirmación.\n\n=== BASE DE EXPERIENCIA ===\n${ctx.base}\n` : ""}
 ${v.lineasDeMas > 0 ? `Sobran ~${v.lineasDeMas} líneas: borra viñetas de menor relevancia para la oferta (nunca agregues).` : ""}
 ${v.lineasResumen > 4 ? "Acorta el Resumen a 4 líneas (~450 caracteres) manteniendo la cadena canónica literal." : ""}
 

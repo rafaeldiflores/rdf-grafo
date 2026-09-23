@@ -1,0 +1,23 @@
+{
+  "name": "@grafo/mcp",
+  "version": "0.1.0",
+  "description": "Servidor MCP de solo lectura sobre el grafo de proyectos (Neo4j)",
+  "scripts": {
+    "start": "node src/server.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "e2e": "node test/e2e.ts"
+  },
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "neo4j-driver": "^6.2.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  },
+  "private": true
+}

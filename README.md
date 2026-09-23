@@ -53,6 +53,11 @@ Angular 22 + Cytoscape.js sobre el `graph.json` público: colores por tipo,
 filtros, búsqueda, panel de detalle, tema claro/oscuro, responsive y enlaces
 directos a un nodo (`/#MAZA`). Ver [`web/README.md`](web/README.md).
 
+## `mcp/` y `tools/`
+
+- [`mcp/`](mcp/README.md): servidor MCP de solo lectura sobre Neo4j (`proyectos_que_usan`, `vecinos`, `resumen_proyecto`, `impacto`).
+- [`tools/`](tools/README.md): hooks de Claude Code que cargan la nota del proyecto al iniciar y registran los commits en su Bitácora al cerrar.
+
 ### Exportación pública (fail-closed)
 
 - Solo nodos con `visibilidad: publico`, más las tecnologías conectadas a ellos.

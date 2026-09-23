@@ -63,7 +63,14 @@ export const NODE_LABELS: Record<string, string> = {
   aprendizaje: 'Aprendizaje',
   persona: 'Persona',
   pendiente: 'Pendiente',
+  postulacion: 'Postulacion',
 };
+
+/**
+ * Tipos que NUNCA se exportan en público, aunque la nota diga `visibilidad: publico`
+ * (postulaciones: empresas, sueldos y estados de procesos de selección).
+ */
+export const NEVER_PUBLIC_TIPOS: readonly string[] = ['postulacion'];
 
 export const PENDING_TIPO = 'pendiente';
 

@@ -96,6 +96,19 @@ describe('filterPublic', () => {
   });
 });
 
+describe('tipos que nunca son públicos', () => {
+  it('una postulación marcada publico igual queda fuera, y sus aristas también', () => {
+    const g = build([
+      mkNote('Oferta X', { tipo: 'postulacion', visibilidad: 'publico', relacionado: [link('MAZA')] }),
+      mkNote('MAZA', { tipo: 'proyecto', visibilidad: 'publico' }),
+    ]).graph;
+    const { graph: pub } = filterPublic(g);
+    expect(pub.nodes.map((n) => n.id)).toEqual(['MAZA']);
+    expect(pub.edges).toEqual([]);
+    expect(JSON.stringify(pub)).not.toContain('Oferta X');
+  });
+});
+
 describe('isMarkedPublic', () => {
   const node = (visibilidad?: unknown) =>
     ({ id: 'x', tipo: 'proyecto', props: visibilidad === undefined ? {} : { visibilidad }, body: '' }) as never;
@@ -109,7 +122,7 @@ describe('isMarkedPublic', () => {
 describe('invariantes con grafos aleatorios', () => {
   // Generador determinista (LCG) para que un fallo sea reproducible.
   const rng = (seed: number) => () => ((seed = (seed * 1664525 + 1013904223) % 2 ** 32) / 2 ** 32);
-  const TIPOS = ['proyecto', 'area', 'canal', 'tecnologia', 'aprendizaje', 'persona'];
+  const TIPOS = ['proyecto', 'area', 'canal', 'tecnologia', 'aprendizaje', 'persona', 'postulacion'];
   const VIS = ['publico', 'privado', undefined, 'otro'];
   const FIELDS = ['stack', 'parte_de', 'cliente', 'relacionado', 'cubre', 'plataforma', 'equipo', 'muestra'];
 

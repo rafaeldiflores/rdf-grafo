@@ -5,7 +5,7 @@
  * Principio: fail-closed. Nada sale salvo que una regla lo permita
  * explícitamente (nodos, aristas, propiedades y texto del cuerpo).
  */
-import type { Graph, GraphEdge, GraphNode, Props } from './model.ts';
+import { NEVER_PUBLIC_TIPOS, type Graph, type GraphEdge, type GraphNode, type Props } from './model.ts';
 import { stripBitacora } from './parser.ts';
 
 /** Propiedades de nodo exportables (lista blanca). `repo` queda fuera a propósito. */
@@ -15,6 +15,7 @@ export const PUBLIC_EDGE_PROPS: readonly string[] = ['destacado'];
 
 /** `publico` o `público`, sin importar mayúsculas ni espacios. Todo lo demás es privado. */
 export function isMarkedPublic(n: GraphNode): boolean {
+  if (NEVER_PUBLIC_TIPOS.includes(n.tipo)) return false;
   const v = n.props.visibilidad;
   if (typeof v !== 'string') return false;
   return v.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase() === 'publico';

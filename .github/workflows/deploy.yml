@@ -1,0 +1,76 @@
+# Publica el grafo público en Vercel.
+#
+# Se dispara cuando el vault privado avisa de un push (repository_dispatch),
+# cuando cambia el código de este repo, o a mano desde la pestaña Actions.
+#
+# IMPORTANTE: este repo es público y sus logs también. Ningún paso debe
+# imprimir contenido del vault: build-graph --public y check-public solo
+# muestran conteos.
+name: Deploy
+
+on:
+  repository_dispatch:
+    types: [vault-actualizado]
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['ingest/**', 'web/**', '.github/workflows/deploy.yml']
+
+# Un solo deploy a la vez; si llega otro cambio, el anterior se cancela.
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VAULT_PATH: ${{ github.workspace }}/vault
+    steps:
+      - uses: actions/checkout@v7
+
+      # Vault privado, con una deploy key de solo lectura (secret VAULT_DEPLOY_KEY).
+      - uses: actions/checkout@v7
+        with:
+          repository: rafaeldiflores/rdf-vault
+          ssh-key: ${{ secrets.VAULT_DEPLOY_KEY }}
+          path: vault
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            ingest/package-lock.json
+            web/package-lock.json
+
+      - name: Ingest — dependencias y tests (incluye el filtro de visibilidad)
+        working-directory: ingest
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+
+      - name: Grafo público
+        working-directory: ingest
+        run: |
+          npm run build-graph -- --public --out ../web/public/graph.json
+          npm run check-public -- ../web/public/graph.json
+
+      - name: Web — tests y build
+        working-directory: web
+        run: |
+          npm ci
+          npx ng test --watch=false
+          npx ng build
+
+      - name: Deploy a Vercel (producción)
+        working-directory: web/dist/web/browser
+        env:
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: npx --yes vercel@59 deploy --prod --yes --token "${{ secrets.VERCEL_TOKEN }}"

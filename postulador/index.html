@@ -97,6 +97,11 @@
   .trazas { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 0.85rem; }
   .trazas .ids { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
   details summary { cursor: pointer; font-size: 0.85rem; margin-top: 8px; }
+  #auditoria summary { margin-top: 0; font-size: 0.92rem; }
+  .aud-lista { margin: 10px 0 0; padding-left: 18px; display: grid; gap: 6px; font-size: 0.88rem; }
+  .aud-lista .accion { display: block; color: var(--muted); }
+  .kw-fuente { font-size: 0.82rem; margin-top: 4px; }
+  .chip.debil { background: var(--paper); border: 1px dashed var(--line); }
 
   .preview-shell { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow: hidden; }
   .preview-empty { display: grid; place-items: center; min-height: 360px; text-align: center; color: var(--muted); padding: 24px; }
@@ -148,6 +153,11 @@
   </header>
 
   <div id="banner" class="banner" hidden></div>
+  <details id="auditoria" class="banner" hidden>
+    <summary id="aud-resumen"></summary>
+    <ul class="aud-lista" id="aud-lista"></ul>
+    <p class="muted" id="aud-omitidas" style="margin-top:8px"></p>
+  </details>
 
   <!-- ───────────── Postular ───────────── -->
   <section id="view-postular" role="tabpanel" aria-labelledby="tab-postular">
@@ -177,6 +187,7 @@
           <div class="step-head"><span class="num">2</span><h2>Revisión</h2></div>
           <div>
             <h3>Palabras clave de la oferta</h3>
+            <p class="muted kw-fuente" id="kw-fuente"></p>
             <div class="chips" id="kw" style="margin-top:8px"></div>
           </div>
           <ul class="findings" id="hallazgos"></ul>
@@ -355,7 +366,7 @@
     if (oferta.length < 80) return status($("st-adaptar"), "Pega el texto completo de la oferta (al menos unas líneas).", "err");
     ctl = new AbortController();
     $("adaptar").disabled = true; $("detener").hidden = false;
-    revisionN++; // descarta la revisión de hechos del CV anterior si aún no termina
+    revisionN++; brechasN++; // descarta revisión y brechas del CV anterior si aún no terminan
     pdf = null; $("descargar").hidden = true; $("paso3").hidden = true; status($("st-pdf"), "");
     try {
       status($("st-adaptar"), "Leyendo tu BASE y tus CVs base…");
@@ -386,6 +397,7 @@ ${oferta.slice(0, 9000)}`,
       actual = { perfil, ...r };
       $("f-empresa").value = r.empresa || ""; $("f-cargo").value = r.cargo || "";
       await validar();
+      cargarBrechas(oferta); // sin await: si el grafo no responde, quedan las keywords estimadas por Claude
       status($("st-adaptar"), `CV adaptado desde el perfil ${perfil}${ctx.instrucciones ? "" : " (con las reglas incluidas: no encontré cv/instrucciones.md)"}.`, "ok");
     } catch (e) {
       status($("st-adaptar"), e?.code && e.code in { invalid_json: 1, not_granted: 1, rate_limited: 1, prompt_too_large: 1, cancelled: 1, sampling_disabled: 1, upstream_error: 1, refused: 1 } ? sampleMsg(e) : mcpMsg(e), e?.code === "cancelled" ? "" : "err");
@@ -400,6 +412,82 @@ ${oferta.slice(0, 9000)}`,
     pintarRevision();
     pintarPreview(v.html);
     revisarHechos(); // sin await: el PDF no espera a esta revisión (es una segunda opinión, no el verificador)
+  }
+
+  // ── Brechas: lo que pide la oferta contra el grafo (herramienta `brechas` del Worker) ──
+  // Reemplaza las keywords que Claude estima al adaptar por evidencia: logros que
+  // demuestran cada término o proyectos que lo declaran. Si el grafo no responde,
+  // se muestran las estimadas, marcadas como tales.
+  const RESPALDADAS = ["demostrada", "declarada", "mencionada"];
+  const NIVEL_TXT = { demostrada: "demostrada con logros", declarada: "en el stack de un proyecto", mencionada: "nombrada en un logro", conocida: "sin uso en proyectos ni logros", brecha: "sin respaldo" };
+  let brechasN = 0;
+  async function cargarBrechas(oferta) {
+    const n = ++brechasN;
+    const requisitos = (actual.keywords_oferta || []).filter((k) => typeof k === "string" && k.trim());
+    try {
+      const r = await call("brechas", { requisitos, oferta: oferta.slice(0, 9000) });
+      if (n !== brechasN || !Array.isArray(r?.requisitos)) return;
+      actual.brechas = r;
+      pintarKeywords();
+    } catch (e) {
+      // Quedan las keywords estimadas, pero sin esconder la falla (p. ej. el token del vault sin acceso GraphQL).
+      console.warn("[postulador] brechas falló:", e);
+      if (n === brechasN) $("kw-fuente").textContent = `Estimadas por Claude: tu grafo no respondió (${mcpMsg(e)}).`;
+    }
+  }
+
+  function pintarKeywords() {
+    const a = actual, kw = $("kw"), fuente = $("kw-fuente");
+    kw.replaceChildren();
+    const chip = (cls, txt, title) => { const c = document.createElement("span"); c.className = "chip" + (cls ? " " + cls : ""); c.textContent = txt; if (title) c.title = title; kw.append(c); };
+    const b = a.brechas;
+    if (b) {
+      const orden = ["demostrada", "declarada", "mencionada", "conocida", "brecha"];
+      const reqs = [...b.requisitos].sort((x, y) => orden.indexOf(x.nivel) - orden.indexOf(y.nivel));
+      for (const q of reqs) {
+        const origen = [...(q.logros || []), ...(q.proyectos || [])].join(", ");
+        const cls = q.nivel === "brecha" ? "miss" : RESPALDADAS.includes(q.nivel) ? "" : "debil";
+        chip(cls, (q.nivel === "brecha" ? "brecha: " : "") + q.termino, `${NIVEL_TXT[q.nivel] || q.nivel}${origen ? " — " + origen : ""}`);
+      }
+      const { respaldadas, total } = cobertura();
+      fuente.textContent = `Según tu grafo: ${respaldadas} de ${total} respaldadas. Pasa el cursor sobre cada una para ver de qué logro o proyecto sale.`;
+      return;
+    }
+    for (const k of a.keywords_cubiertas || []) chip("", k);
+    for (const k of a.keywords_faltantes || []) chip("miss", "sin respaldo: " + k);
+    fuente.textContent = "Estimadas por Claude al adaptar.";
+  }
+
+  /** Cobertura para el Tracker: la del grafo si hay brechas; si no, la estimada al adaptar. */
+  function cobertura() {
+    const b = actual.brechas;
+    if (b) {
+      const ok = b.requisitos.filter((q) => RESPALDADAS.includes(q.nivel)).map((q) => q.termino);
+      return { respaldadas: b.cobertura?.respaldadas ?? ok.length, total: b.cobertura?.total ?? b.requisitos.length, terminos: ok, fuente: "grafo" };
+    }
+    const terminos = actual.keywords_cubiertas || [];
+    return { respaldadas: terminos.length, total: (actual.keywords_oferta || []).length, terminos, fuente: "estimada" };
+  }
+
+  // ── Auditoría: ¿la BASE y los CVs base siguen al día con los proyectos? (herramienta `auditar_cv`) ──
+  async function cargarAuditoria() {
+    try {
+      const r = await call("auditar_cv");
+      const hs = (r?.hallazgos || []).filter((h) => h.severidad === "alta" || h.severidad === "media");
+      if (!hs.length) return;
+      const n = (s) => hs.filter((h) => h.severidad === s).length;
+      $("aud-resumen").textContent = `Tu BASE está desactualizada: ${[n("alta") && `${n("alta")} alta${n("alta") > 1 ? "s" : ""}`, n("media") && `${n("media")} media${n("media") > 1 ? "s" : ""}`].filter(Boolean).join(" · ")}. Lo que no está en la BASE, el Postulador no lo puede poner en un CV.`;
+      const ul = $("aud-lista"); ul.replaceChildren();
+      for (const h of hs) {
+        const li = document.createElement("li"); li.textContent = h.detalle;
+        const ac = document.createElement("span"); ac.className = "accion"; ac.textContent = "→ " + h.accion;
+        li.append(ac); ul.append(li);
+      }
+      $("aud-omitidas").textContent = r.nota || (r.omitidas?.length ? `Desde aquí no se revisan: ${r.omitidas.join(", ")} (necesitan tus repos; corre auditar_cv en Claude Code).` : "");
+      $("auditoria").hidden = false;
+    } catch (e) {
+      console.warn("[postulador] auditar_cv falló:", e); // el aviso es opcional: la página sigue igual
+    }
   }
 
   // ── Revisión de hechos: cada afirmación del CV contra su logro de la BASE ──
@@ -467,9 +555,7 @@ ${actual.markdown}`,
   function pintarRevision() {
     const a = actual, v = a.validacion;
     $("paso2").hidden = false;
-    const kw = $("kw"); kw.replaceChildren();
-    for (const k of a.keywords_cubiertas || []) { const c = document.createElement("span"); c.className = "chip"; c.textContent = k; kw.append(c); }
-    for (const k of a.keywords_faltantes || []) { const c = document.createElement("span"); c.className = "chip miss"; c.textContent = "sin respaldo: " + k; kw.append(c); }
+    pintarKeywords();
     const ul = $("hallazgos"); ul.replaceChildren();
     const items = v.hallazgos.length ? v.hallazgos : [{ nivel: "okmsg", detalle: "Pasa todas las reglas." }];
     for (const h of items) { const li = document.createElement("li"); li.className = h.nivel === "error" ? "error" : h.nivel === "okmsg" ? "okmsg" : ""; li.textContent = (h.nivel === "error" ? "✗ " : h.nivel === "okmsg" ? "✓ " : "⚠ ") + h.detalle; ul.append(li); }
@@ -562,8 +648,7 @@ ${actual.markdown}`,
     $("registrar").disabled = true;
     status($("st-reg"), "Guardando en vault/postulaciones…");
     try {
-      const total = (actual.keywords_oferta || []).length;
-      const cub = (actual.keywords_cubiertas || []).length;
+      const cob = cobertura();
       const r = await call("postulacion_guardar", {
         empresa: $("f-empresa").value.trim(),
         cargo: $("f-cargo").value.trim(),
@@ -573,7 +658,7 @@ ${actual.markdown}`,
         canal: $("f-canal").value.trim() || undefined,
         cv_perfil: actual.perfil,
         cv_pdf: pdf?.archivo,
-        keywords_cubiertas: total ? `${Math.round((cub / total) * 100)}% (${(actual.keywords_cubiertas || []).join(", ")})` : undefined,
+        keywords_cubiertas: cob.total ? `${Math.round((cob.respaldadas / cob.total) * 100)}% (${cob.terminos.join(", ")})${cob.fuente === "estimada" ? " [estimada]" : ""}` : undefined,
         proxima_accion: $("f-accion").value.trim() || undefined,
         proxima_fecha: $("f-fecha").value || undefined,
         url: $("url").value.trim() || undefined,
@@ -671,6 +756,7 @@ ${actual.markdown}`,
     try {
       ctx = await call("cv_contexto");
       for (const p of ctx.perfiles) $("perfil").add(new Option(p.perfil, p.perfil));
+      cargarAuditoria();
     } catch (e) {
       banner(mcpMsg(e), e?.code !== "server_not_connected");
     }

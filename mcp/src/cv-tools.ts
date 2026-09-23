@@ -44,7 +44,11 @@ function dentroDe(carpeta: string, archivo: string): string {
 }
 
 export class CvStore {
-  constructor(readonly vault: string) {}
+  // Campo explícito (no "parameter property"): Node ejecuta TS solo quitando tipos.
+  readonly vault: string;
+  constructor(vault: string) {
+    this.vault = vault;
+  }
 
   private leer = (rel: string) => readFileSync(join(this.vault, rel), 'utf8');
   private encabezado = () => parseEncabezado(this.leer('cv/encabezado.md'));

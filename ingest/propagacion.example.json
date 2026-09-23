@@ -1,0 +1,7 @@
+{
+  "proyectos": { "MAZA": "C:/ruta/al/repo/Maza-app" },
+  "destinos": [
+    "C:/ruta/al/portafolio/index.html",
+    "C:/ruta/al/repo/Maza-app/README.md"
+  ]
+}

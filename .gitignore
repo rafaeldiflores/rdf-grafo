@@ -9,3 +9,6 @@ out/
 # Archivos de credenciales descargados de Neo4j Aura
 Neo4j-*.txt
 *credentials*.txt
+
+# Config de propagación: rutas de esta máquina
+ingest/propagacion.local.json

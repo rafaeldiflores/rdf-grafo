@@ -8,7 +8,8 @@
     "sync-neo4j": "tsx src/cli/sync-neo4j.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "check-public": "tsx src/cli/check-public.ts"
+    "check-public": "tsx src/cli/check-public.ts",
+    "propagar": "tsx src/cli/propagar.ts"
   },
   "type": "module",
   "dependencies": {

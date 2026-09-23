@@ -713,6 +713,9 @@ ${actual.markdown}`,
    * con "\|" para un pipe literal. Una línea que no empieza con "|" continúa la
    * celda anterior (texto con saltos de línea).
    */
+  // El conector escapa la puntuación de Markdown en cada celda ("texto\_completo", "\|", "\*").
+  const desescapar = (c) => c.trim().replace(/\\([\\`*_{}\[\]()#+\-.!|~<>])/g, "$1");
+
   function parseTabla(md) {
     const lineas = [];
     for (const l of String(md).replaceAll("\r\n", "\n").split("\n")) {
@@ -720,7 +723,7 @@ ${actual.markdown}`,
     }
     const filas = lineas
       .filter((l) => l.trimStart().startsWith("|"))
-      .map((l) => l.trim().replace(/^\|/, "").replace(/(?<!\\)\|$/, "").split(/(?<!\\)\|/).map((c) => c.trim().replaceAll("\\|", "|")));
+      .map((l) => l.trim().replace(/^\|/, "").replace(/(?<!\\)\|$/, "").split(/(?<!\\)\|/).map(desescapar));
     const i = filas.findIndex((f) => plano(f[0]) === "id");
     if (i < 0) throw new Error("El Sheet no tiene la fila de encabezados (id, detectada, …).");
     const cab = filas[i].map(plano);

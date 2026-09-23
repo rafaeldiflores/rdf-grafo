@@ -50,6 +50,16 @@ describe('contexto y listado', () => {
     expect(c.base).toContain('maza-x');
     expect(c.perfiles.map((p) => p.perfil)).toEqual(['FullStack']);
     expect(c.reglas.nunca_incluir).toEqual(['Proyecto Vetado']);
+    expect(c.instrucciones).toBeNull();
+  });
+  it('entrega las instrucciones del vault cuando existen', () => {
+    const ruta = join(vault, 'cv/instrucciones.md');
+    writeFileSync(ruta, '<!-- ayuda -->\nREGLAS: {TITULO}\n');
+    try {
+      expect(store.contexto().instrucciones).toBe('REGLAS: {TITULO}');
+    } finally {
+      rmSync(ruta);
+    }
   });
   it('lista postulaciones con fechas en texto y sin campos internos', () => {
     const [p] = store.listarPostulaciones();

@@ -6,8 +6,8 @@
  * GitHub, además, solo tiene "Contents" sobre rdf-vault.
  */
 
-/** Rutas legibles: CVs, BASE, encabezado y postulaciones. Nada más del vault (p. ej. Bitácoras). */
-const LECTURA = [/^cv\/BASE_Experiencia\.md$/, /^cv\/encabezado\.md$/, /^cv\/base\/[^/]+\.md$/, /^postulaciones\/[^/]+\.md$/];
+/** Rutas legibles: CVs, BASE, encabezado, instrucciones y postulaciones. Nada más del vault (p. ej. Bitácoras). */
+const LECTURA = [/^cv\/BASE_Experiencia\.md$/, /^cv\/encabezado\.md$/, /^cv\/instrucciones\.md$/, /^cv\/base\/[^/]+\.md$/, /^postulaciones\/[^/]+\.md$/];
 /** Rutas escribibles: notas de postulación y CVs generados. La BASE y los CVs base, nunca. */
 const ESCRITURA = [/^postulaciones\/[^/]+\.md$/, /^cv\/generados\/[^/]+\.(md|pdf)$/];
 /** Carpetas listables. */

@@ -125,7 +125,7 @@ server.registerTool(
   'cv_contexto',
   {
     title: 'Contexto para adaptar un CV',
-    description: 'BASE de experiencia (fuente única de logros), los CVs base por perfil en Markdown y las reglas (fechas fijas, textos vetados, estados del Tracker).',
+    description: 'BASE de experiencia (fuente única de logros), los CVs base por perfil en Markdown, las instrucciones de redacción editables del vault (null si no hay) y las reglas (fechas fijas, textos vetados, estados del Tracker).',
     inputSchema: {},
     annotations: readOnly,
   },

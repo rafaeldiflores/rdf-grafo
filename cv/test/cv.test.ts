@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { extraerInstrucciones } from '../src/instrucciones.ts';
 import { lintCv } from '../src/lint.ts';
 import { parseCv, parseEncabezado } from '../src/parse.ts';
 import { chromePath, contarPaginas, htmlAPdf } from '../src/pdf.ts';
@@ -127,5 +128,15 @@ describe.skipIf(!hayChrome)('PDF con Chrome', () => {
 
   it('contarPaginas ignora el nodo /Pages', () => {
     expect(contarPaginas(Buffer.from('/Type /Pages /Type /Page /Type/Page'))).toBe(2);
+  });
+});
+
+describe('instrucciones del vault', () => {
+  it('quita frontmatter y comentarios; vacía o ausente = null', () => {
+    expect(extraerInstrucciones('---\na: 1\n---\n<!-- ayuda\nvarias líneas -->\n\nREGLAS:\n- una\n')).toBe('REGLAS:\n- una');
+    expect(extraerInstrucciones('﻿---\r\na: 1\r\n---\r\nX')).toBe('X');
+    expect(extraerInstrucciones('Sin frontmatter --- aquí')).toBe('Sin frontmatter --- aquí');
+    expect(extraerInstrucciones('---\na: 1\n---\n<!-- solo ayuda -->\n')).toBeNull();
+    expect(extraerInstrucciones(null)).toBeNull();
   });
 });

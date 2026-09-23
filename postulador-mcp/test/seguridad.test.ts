@@ -6,7 +6,7 @@ import { Postulador } from '../src/cv.ts';
 import { b64, puedeEscribir, puedeLeer, Vault } from '../src/vault.ts';
 
 describe('listas blancas de rutas', () => {
-  it.each(['cv/BASE_Experiencia.md', 'cv/encabezado.md', 'cv/base/Mobile.md', 'postulaciones/Acme - Dev.md'])('permite leer %s', (r) => {
+  it.each(['cv/BASE_Experiencia.md', 'cv/encabezado.md', 'cv/instrucciones.md', 'cv/base/Mobile.md', 'postulaciones/Acme - Dev.md'])('permite leer %s', (r) => {
     expect(puedeLeer(r)).toBe(true);
   });
   it.each([
@@ -27,6 +27,7 @@ describe('listas blancas de rutas', () => {
     'cv/BASE_Experiencia.md', // la BASE es de solo lectura
     'cv/base/Mobile.md',
     'cv/encabezado.md',
+    'cv/instrucciones.md', // se edita solo en el vault
     'proyectos/MAZA.md',
     '.gitignore',
     'cv/generados/x.exe',
@@ -73,13 +74,14 @@ Texto.
 - **Estado:** Titulada.
 `;
 
-function montar(paginas = 1) {
+function montar(paginas = 1, extra: Record<string, string> = {}) {
   const gh = githubFalso({
     'cv/encabezado.md': ENCABEZADO,
     'cv/BASE_Experiencia.md': '# BASE',
     'cv/base/FullStack.md': CV,
     'postulaciones/Acme - Dev.md': '---\ntipo: postulacion\nvisibilidad: privado\nempresa: "Acme"\ncargo: "Dev"\nfecha: 2026-09-01\nestado: "Postulado"\n---\n# Dev — Acme\n',
     'proyectos/MAZA.md': 'PRIVADO',
+    ...extra,
   });
   const pdfFalso = async () => ({ pdf: new TextEncoder().encode('%PDF-1.7 falso'), paginas, lineasDeMas: paginas > 1 ? 5 : -3, lineasResumen: 2 });
   return { gh, p: new Postulador(new Vault('TOKEN', 'rafa/rdf-vault', 'main', gh.http), pdfFalso) };
@@ -124,6 +126,12 @@ describe('Postulador', () => {
     expect(c.perfiles.map((x) => x.perfil)).toEqual(['FullStack']);
     expect(JSON.stringify(c)).not.toContain('PRIVADO');
     expect(gh.log.every((l) => l.metodo === 'GET')).toBe(true);
+    expect(c.instrucciones).toBeNull(); // sin nota: el artefacto usa sus reglas incluidas
+  });
+
+  it('contexto trae las instrucciones del vault sin frontmatter ni comentarios', async () => {
+    const { p } = montar(1, { 'cv/instrucciones.md': '---\nnota: x\n---\n<!-- ayuda para Rafa -->\nREGLAS: título {TITULO}.\n' });
+    expect((await p.contexto()).instrucciones).toBe('REGLAS: título {TITULO}.');
   });
 
   it('validar no escribe nada', async () => {

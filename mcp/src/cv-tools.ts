@@ -12,6 +12,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join, resolve, sep } from 'node:path';
 import { lintCv, SECCIONES, type Hallazgo } from '../../cv/src/lint.ts';
 import { parseCv, parseEncabezado } from '../../cv/src/parse.ts';
+import { extraerInstrucciones, RUTA_INSTRUCCIONES } from '../../cv/src/instrucciones.ts';
 import { htmlAPdf } from '../../cv/src/pdf.ts';
 import { renderHtml } from '../../cv/src/render.ts';
 import { ESTADOS, fusionarPostulacion, hoy, leerPostulacion, nombreSeguro, rutaPostulacion, type PostulacionInput } from '../../cv/src/postulaciones.ts';
@@ -46,6 +47,7 @@ export class CvStore {
     return {
       base: this.leer('cv/BASE_Experiencia.md'),
       perfiles,
+      instrucciones: extraerInstrucciones(existsSync(join(this.vault, RUTA_INSTRUCCIONES)) ? this.leer(RUTA_INSTRUCCIONES) : null),
       reglas: { titulo_profesional: enc.titulo_profesional, fechas_fijas: enc.fechas_fijas, nunca_incluir: enc.nunca_incluir, secciones: SECCIONES, estados: ESTADOS },
     };
   }

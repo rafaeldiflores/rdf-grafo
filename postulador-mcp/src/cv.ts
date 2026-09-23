@@ -7,6 +7,7 @@
 import { lintCv, SECCIONES, type Hallazgo } from '../../cv/src/lint.ts';
 import { parseCv, parseEncabezado } from '../../cv/src/parse.ts';
 import { ESTADOS, fusionarPostulacion, leerPostulacion, nombreSeguro, rutaPostulacion, type PostulacionInput } from '../../cv/src/postulaciones.ts';
+import { extraerInstrucciones, RUTA_INSTRUCCIONES } from '../../cv/src/instrucciones.ts';
 import { renderHtml } from '../../cv/src/render.ts';
 import type { PdfNube } from './pdf.ts';
 import { b64, type Vault } from './vault.ts';
@@ -26,11 +27,16 @@ export class Postulador {
   }
 
   async contexto() {
-    const [enc, base, nombres] = await Promise.all([this.encabezado(), this.vault.leer('cv/BASE_Experiencia.md'), this.vault.listar('cv/base')]);
+    const [enc, base, nombres, instrucciones] = await Promise.all([
+      this.encabezado(),
+      this.vault.leer('cv/BASE_Experiencia.md'),
+      this.vault.listar('cv/base'),
+      this.vault.leer(RUTA_INSTRUCCIONES),
+    ]);
     const perfiles = await Promise.all(
       nombres.map(async (n) => ({ perfil: n.slice(0, -'.md'.length), markdown: (await this.vault.leer(`cv/base/${n}`)) ?? '' })),
     );
-    return { base: base ?? '', perfiles, reglas: { titulo_profesional: enc.titulo_profesional, fechas_fijas: enc.fechas_fijas, nunca_incluir: enc.nunca_incluir, secciones: SECCIONES, estados: ESTADOS } };
+    return { base: base ?? '', perfiles, instrucciones: extraerInstrucciones(instrucciones), reglas: { titulo_profesional: enc.titulo_profesional, fechas_fijas: enc.fechas_fijas, nunca_incluir: enc.nunca_incluir, secciones: SECCIONES, estados: ESTADOS } };
   }
 
   async validar(markdown: string) {

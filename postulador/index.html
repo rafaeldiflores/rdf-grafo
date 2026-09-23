@@ -1,0 +1,597 @@
+<title>Postulador RDF</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --paper: #f3f5f8;
+    --surface: #ffffff;
+    --ink: #111a27;
+    --muted: #5a6678;
+    --line: #d8dee6;
+    --accent: #0b5394;
+    --accent-ink: #ffffff;
+    --accent-soft: #e2ecf6;
+    --ok: #1e7a4f;
+    --ok-soft: #e0f1e8;
+    --warn: #8f5500;
+    --warn-soft: #fbeedb;
+    --err: #b42318;
+    --err-soft: #fbe4e1;
+    --sheet-shadow: 0 1px 2px rgb(17 26 39 / 0.08), 0 8px 24px rgb(17 26 39 / 0.08);
+    --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #0d131b; --surface: #151d28; --ink: #e5ebf2; --muted: #93a1b3; --line: #273240;
+      --accent: #7db3e8; --accent-ink: #0d131b; --accent-soft: #16293d;
+      --ok: #5cc08c; --ok-soft: #12291e; --warn: #e5a54b; --warn-soft: #2d2212; --err: #f0796c; --err-soft: #331714;
+      --sheet-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #0d131b; --surface: #151d28; --ink: #e5ebf2; --muted: #93a1b3; --line: #273240;
+    --accent: #7db3e8; --accent-ink: #0d131b; --accent-soft: #16293d;
+    --ok: #5cc08c; --ok-soft: #12291e; --warn: #e5a54b; --warn-soft: #2d2212; --err: #f0796c; --err-soft: #331714;
+    --sheet-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 var(--sans); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 48px; }
+  h1, h2, h3 { margin: 0; line-height: 1.2; text-wrap: balance; }
+  h1 { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.01em; }
+  h2 { font-size: 1.05rem; font-weight: 600; }
+  h3 { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  p { margin: 0; }
+  .muted { color: var(--muted); }
+  .mono { font-family: var(--mono); font-size: 0.86em; }
+  a { color: var(--accent); }
+
+  header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; margin-bottom: 18px; }
+  .brand p { font-size: 0.9rem; color: var(--muted); margin-top: 2px; }
+  .tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+  .tabs button { border: 0; background: none; color: var(--muted); font: 500 0.92rem var(--sans); padding: 7px 16px; border-radius: 7px; cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+
+  .banner { border: 1px solid var(--warn); background: var(--warn-soft); border-radius: 8px; padding: 12px 14px; margin-bottom: 18px; }
+  .banner.err { border-color: var(--err); background: var(--err-soft); }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+  .step { display: grid; gap: 12px; }
+  .step + .step { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .step-head { display: flex; align-items: baseline; gap: 10px; }
+  .num { font: 500 0.8rem var(--mono); color: var(--accent); }
+
+  label { display: grid; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+  input, select, textarea { font: 0.95rem var(--sans); color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; }
+  textarea { min-height: 200px; resize: vertical; line-height: 1.45; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; }
+  .row > label { flex: 1 1 150px; }
+
+  .btn { font: 500 0.92rem var(--sans); border-radius: 8px; padding: 9px 16px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+  .btn.ghost { background: none; color: var(--accent); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+  .status { font-size: 0.88rem; color: var(--muted); min-height: 1.3em; }
+  .status.err { color: var(--err); }
+  .status.ok { color: var(--ok); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 0.8rem; padding: 2px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--ink); }
+  .chip.miss { background: var(--warn-soft); }
+  .findings { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .findings li { font-size: 0.88rem; padding: 6px 10px; border-radius: 6px; background: var(--warn-soft); }
+  .findings li.error { background: var(--err-soft); }
+  .findings li.okmsg { background: var(--ok-soft); }
+
+  .preview-shell { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow: hidden; }
+  .preview-empty { display: grid; place-items: center; min-height: 360px; text-align: center; color: var(--muted); padding: 24px; }
+  .sheet-box { position: relative; margin: 0 auto; }
+  .sheet { position: absolute; top: 0; left: 0; width: 816px; transform-origin: top left; background: #fff; box-shadow: var(--sheet-shadow); }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.85rem; color: var(--muted); margin-bottom: 10px; }
+  .meta b { color: var(--ink); font-weight: 600; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+  @media (max-width: 640px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .stat .v { font: 500 1.6rem var(--mono); font-variant-numeric: tabular-nums; }
+  .stat .k { font-size: 0.82rem; color: var(--muted); }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th { text-align: left; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.date { font-family: var(--mono); font-size: 0.84rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td .co { font-weight: 500; }
+  td .ca { color: var(--muted); font-size: 0.85rem; }
+  td select { padding: 4px 6px; font-size: 0.85rem; min-width: 140px; }
+  .due { font-family: var(--mono); font-size: 0.84rem; }
+  .due.late { color: var(--err); font-weight: 500; }
+  .due.today { color: var(--warn); font-weight: 500; }
+
+  .next { display: grid; gap: 8px; margin: 0 0 18px; padding: 0; list-style: none; }
+  .next li { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 10px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+  .next li.late { border-color: var(--err); }
+  .next li.today { border-color: var(--warn); }
+  .pill { display: inline-block; font-size: 0.75rem; font-weight: 500; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); }
+  .pill.s-Entrevista, .pill.s-Oferta, .pill.s-Contacto, .pill.s-Prueba { background: var(--ok-soft); color: var(--ok); }
+  .pill.s-Descartado { background: var(--err-soft); color: var(--err); }
+  .pill.s-No { background: var(--paper); color: var(--muted); border: 1px solid var(--line); }
+  .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Postulador</h1>
+      <p>CV ATS de 1 página desde tu BASE, y el Tracker de postulaciones — todo en tu vault local.</p>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Secciones">
+      <button role="tab" id="tab-postular" aria-selected="true" aria-controls="view-postular">Postular</button>
+      <button role="tab" id="tab-tracker" aria-selected="false" aria-controls="view-tracker">Tracker</button>
+    </nav>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <!-- ───────────── Postular ───────────── -->
+  <section id="view-postular" role="tabpanel" aria-labelledby="tab-postular">
+    <div class="grid">
+      <div class="panel">
+        <div class="step">
+          <div class="step-head"><span class="num">1</span><h2>La oferta</h2></div>
+          <label for="oferta">Texto de la oferta (cópialo del portal)
+            <textarea id="oferta" placeholder="Pega aquí la descripción del cargo: requisitos, funciones, stack…"></textarea>
+          </label>
+          <div class="row">
+            <label for="perfil">Perfil base
+              <select id="perfil"><option value="auto">Automático</option></select>
+            </label>
+            <label for="url">Link de la oferta (opcional)
+              <input id="url" type="url" placeholder="https://…">
+            </label>
+          </div>
+          <div class="actions">
+            <button class="btn" id="adaptar" type="button">Adaptar CV</button>
+            <button class="btn ghost" id="detener" type="button" hidden>Detener</button>
+          </div>
+          <p class="status" id="st-adaptar" role="status"></p>
+        </div>
+
+        <div class="step" id="paso2" hidden>
+          <div class="step-head"><span class="num">2</span><h2>Revisión</h2></div>
+          <div>
+            <h3>Palabras clave de la oferta</h3>
+            <div class="chips" id="kw" style="margin-top:8px"></div>
+          </div>
+          <ul class="findings" id="hallazgos"></ul>
+          <div class="actions">
+            <button class="btn ghost" id="ajustar" type="button">Ajustar a las reglas</button>
+            <button class="btn" id="generar" type="button">Generar PDF</button>
+            <button class="btn ghost" id="descargar" type="button" hidden>Descargar PDF</button>
+          </div>
+          <p class="status" id="st-pdf" role="status"></p>
+        </div>
+
+        <form class="step" id="paso3" hidden>
+          <div class="step-head"><span class="num">3</span><h2>Registrar en el Tracker</h2></div>
+          <div class="row">
+            <label for="f-empresa">Empresa<input id="f-empresa" required></label>
+            <label for="f-cargo">Cargo<input id="f-cargo" required></label>
+          </div>
+          <div class="row">
+            <label for="f-canal">Canal<input id="f-canal" placeholder="LinkedIn, Laborum…"></label>
+            <label for="f-estado">Estado<select id="f-estado"></select></label>
+          </div>
+          <div class="row">
+            <label for="f-accion">Próxima acción<input id="f-accion" value="Esperar respuesta"></label>
+            <label for="f-fecha">Fecha<input id="f-fecha" type="date"></label>
+          </div>
+          <label for="f-notas">Notas<input id="f-notas" placeholder="Modalidad, renta informada…"></label>
+          <div class="actions"><button class="btn" id="registrar" type="submit">Registrar postulación</button></div>
+          <p class="status" id="st-reg" role="status"></p>
+        </form>
+      </div>
+
+      <div class="panel">
+        <div class="section-head"><h2>Vista previa</h2><span class="muted mono" id="pv-medidas"></span></div>
+        <div class="meta" id="pv-meta" hidden></div>
+        <div class="preview-shell">
+          <div class="preview-empty" id="pv-vacio">
+            <div>
+              <p><b>Aquí aparece el CV adaptado</b>, renderizado con tu plantilla ATS real.</p>
+              <p class="muted" style="margin-top:6px">El verificador aplica las reglas de tu BASE y exige 1 página antes de generar el PDF.</p>
+            </div>
+          </div>
+          <div class="sheet-box" id="pv-box" hidden><div class="sheet" id="pv-sheet"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── Tracker ───────────── -->
+  <section id="view-tracker" role="tabpanel" aria-labelledby="tab-tracker" hidden>
+    <div class="stats" id="stats">
+      <div class="stat"><div class="v" id="s-total">—</div><div class="k">Registradas</div></div>
+      <div class="stat"><div class="v" id="s-env">—</div><div class="k">Enviadas</div></div>
+      <div class="stat"><div class="v" id="s-av">—</div><div class="k">Avances</div></div>
+      <div class="stat"><div class="v" id="s-tasa">—</div><div class="k" id="s-tasa-k">Tasa de contacto (≥ 10 días)</div></div>
+    </div>
+    <div class="section-head"><h2>Próximas acciones</h2><button class="btn ghost" id="refrescar" type="button">Actualizar</button></div>
+    <ul class="next" id="proximas"><li><span></span><span class="muted">Cargando…</span></li></ul>
+    <div class="panel">
+      <div class="section-head"><h2>Todas las postulaciones</h2><span class="status" id="st-tracker" role="status"></span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Fecha</th><th>Postulación</th><th>Canal</th><th>CV</th><th>Estado</th><th>Próxima acción</th></tr></thead>
+          <tbody id="filas"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const HOST = "host:grafo";
+  const ESTADOS = ["Postulado", "Contacto", "Prueba tecnica", "Entrevista", "Oferta", "Descartado", "No enviada"];
+  const AVANCE = ["Contacto", "Prueba tecnica", "Entrevista", "Oferta"];
+  const $ = (id) => document.getElementById(id);
+
+  // ── Estado de la página ──
+  let mcp = null, sample = null, downloads = null;
+  let ctx = null;          // cv_contexto: BASE, perfiles, reglas
+  let actual = null;       // { perfil, empresa, cargo, area, markdown, keywords_*, validacion }
+  let pdf = null;          // { archivo, base64 }
+  let postulaciones = [];
+  let ctl = null;
+
+  // ── Utilidades ──
+  const hoy = (d = new Date()) => d.toLocaleDateString("en-CA", { timeZone: "America/Santiago" });
+  const masDias = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return hoy(d); };
+  const status = (el, msg, kind = "") => { el.textContent = msg; el.className = "status" + (kind ? " " + kind : ""); };
+  const banner = (msg, err = false) => { const b = $("banner"); b.textContent = msg; b.className = "banner" + (err ? " err" : ""); b.hidden = !msg; };
+  const slug = (s) => s.normalize("NFD").replace(/\p{M}/gu, "").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 40);
+
+  const mcpMsg = (e) => {
+    switch (e?.code) {
+      case "server_not_connected": return "No encuentro tu servidor local “grafo”. Abre este artefacto en la app de escritorio de Claude, en tu PC, con la app reiniciada tras configurar el MCP.";
+      case "cancelled": return "Cancelaste la confirmación en la app; no se hizo nada.";
+      case "not_in_manifest": return "Esta página no tiene permiso para usar “grafo”. Revísalo en los permisos del artefacto.";
+      case "tool_error": return (e.message || "La herramienta informó un error.").replace(/^Error:\s*/, "");
+      case "server_unavailable": return "El servidor local no respondió a tiempo. Vuelve a intentarlo.";
+      default: return "No se pudo completar la acción (" + (e?.code || "error") + ").";
+    }
+  };
+  const sampleMsg = (e) => {
+    switch (e?.code) {
+      case "not_granted": case "sampling_disabled": return "Esta página no tiene permiso para usar Claude en tu cuenta.";
+      case "rate_limited": return "Llegaste al límite de uso por ahora. Intenta en un rato.";
+      case "invalid_json": return "La respuesta no vino en el formato esperado. Vuelve a intentarlo.";
+      case "prompt_too_large": return "La oferta es demasiado larga: pega solo la descripción y los requisitos.";
+      case "cancelled": return "Detenido.";
+      default: return "Claude no pudo completar el pedido (" + (e?.code || "error") + "). Vuelve a intentarlo.";
+    }
+  };
+
+  const call = async (tool, input) => {
+    if (!mcp) throw { code: "server_not_connected" };
+    const r = await mcp.callTool(HOST, tool, input ?? {}, { cache: false });
+    return typeof r.payload === "string" ? JSON.parse(r.payload) : r.payload;
+  };
+
+  // ── Pestañas (#tracker abre directo el Tracker) ──
+  const tabs = { postular: $("tab-postular"), tracker: $("tab-tracker") };
+  const mostrar = (nombre) => {
+    for (const [k, b] of Object.entries(tabs)) {
+      b.setAttribute("aria-selected", String(k === nombre));
+      $("view-" + k).hidden = k !== nombre;
+    }
+    if (nombre === "tracker") cargarTracker();
+  };
+  tabs.postular.onclick = () => mostrar("postular");
+  tabs.tracker.onclick = () => mostrar("tracker");
+
+  // ── Prompts ──
+  const REGLAS = `REGLAS (obligatorias, vienen de la BASE de Rafa):
+- Solo hechos de la BASE. Selecciona logros por su id. Nunca inventes métricas; una métrica vacía no recibe número.
+- Una métrica marcada ESTIMADA no se imprime: se omite el número. La palabra ESTIMADA nunca aparece.
+- Certificaciones en curso: "en curso" o "en preparación", NUNCA con fecha de verificación.
+- MedInfo NUNCA se omite en un CV de IA. El Sistema de postulaciones NUNCA va en un CV.
+- Cadena canónica de MAZA, literal y como oración aparte: "en pruebas cerradas para Google Play (vX), con 14 talleres y ~100 vehículos en uso real. Volumen procesado: 561 órdenes y 2.605 cambios de estado." (copia la versión exacta del CV base). En un CV de Datos/BI se omite la oración del volumen porque va el logro maza-data-vol-01.
+- Fechas fijas (no las cambies): {FECHAS}. Textos vetados: {VETOS}.
+- Formato EXACTO (Markdown): frontmatter con titulo; luego EXACTAMENTE 4 secciones en este orden:
+  "## RESUMEN PROFESIONAL" (un párrafo de máximo ~450 caracteres = 4 líneas),
+  "## HABILIDADES TÉCNICAS" (viñetas "- **Categoría:** …"),
+  "## EXPERIENCIA / PROYECTOS EN <ÁREA DE LA OFERTA EN MAYÚSCULAS>",
+  "## EDUCACIÓN Y CERTIFICACIONES".
+  Cada experiencia: "### Cargo | Empresa (Mes Año – Mes Año|Presente)" y viñetas "- **Etiqueta:** Verbo + tecnología exacta + resultado.".
+- Máximo 8 viñetas de experiencia en total. Para acortar se BORRAN viñetas, nunca se agregan.
+- El titulo (subtítulo bajo el nombre) = "Ingeniero en Informática | <cargo exacto de la oferta> (<3-4 tecnologías centrales>)".
+- Palabras clave: usa la forma exacta de la oferta cuando la BASE la respalda; siglas expandidas ("Inteligencia Artificial (IA)"); términos centrales también en inglés una vez. Nada de relleno ni términos que la BASE no respalde.`;
+
+  const reglasCon = () => REGLAS
+    .replace("{FECHAS}", Object.entries(ctx.reglas.fechas_fijas).map(([k, v]) => `${k} desde ${v}`).join("; "))
+    .replace("{VETOS}", ctx.reglas.nunca_incluir.join(", "));
+
+  async function elegirPerfil(oferta) {
+    const opciones = ctx.perfiles.map((p) => `- ${p.perfil}: ${(p.markdown.match(/titulo:\s*"([^"]+)"/) || [])[1] || ""}`).join("\n");
+    const r = await sample.json(
+      `Elige el CV base que mejor calza con esta oferta. Opciones:\n${opciones}\n\nResponde solo JSON: {"perfil": "<nombre exacto de la opción>"}\n\nOFERTA:\n${oferta.slice(0, 6000)}`,
+      { modelTier: "quick", signal: ctl.signal },
+    );
+    return ctx.perfiles.find((p) => p.perfil === r?.perfil) ? r.perfil : ctx.perfiles[0].perfil;
+  }
+
+  async function adaptar() {
+    const oferta = $("oferta").value.trim();
+    if (oferta.length < 80) return status($("st-adaptar"), "Pega el texto completo de la oferta (al menos unas líneas).", "err");
+    ctl = new AbortController();
+    $("adaptar").disabled = true; $("detener").hidden = false;
+    pdf = null; $("descargar").hidden = true; $("paso3").hidden = true; status($("st-pdf"), "");
+    try {
+      status($("st-adaptar"), "Leyendo tu BASE y tus CVs base…");
+      ctx = ctx ?? (await call("cv_contexto"));
+      let perfil = $("perfil").value;
+      if (perfil === "auto") { status($("st-adaptar"), "Eligiendo el perfil…"); perfil = await elegirPerfil(oferta); }
+      const base = ctx.perfiles.find((p) => p.perfil === perfil).markdown;
+      status($("st-adaptar"), `Adaptando el CV ${perfil} a la oferta (suele tardar 30–60 s)…`);
+      const r = await sample.json(
+        `Eres el asistente de CVs de Rafa. Adapta su CV base "${perfil}" a la OFERTA, usando la BASE de experiencia como única fuente de hechos.
+
+${reglasCon()}
+
+Responde SOLO JSON con esta forma:
+{"empresa": "...", "cargo": "cargo exacto de la oferta", "area": "área corta", "markdown": "el CV completo en el formato exacto", "keywords_oferta": ["..."], "keywords_cubiertas": ["..."], "keywords_faltantes": ["términos pedidos que la BASE no respalda"]}
+
+=== CV BASE (${perfil}) ===
+${base}
+
+=== BASE DE EXPERIENCIA ===
+${ctx.base}
+
+=== OFERTA ===
+${oferta.slice(0, 9000)}`,
+        { signal: ctl.signal },
+      );
+      if (!r?.markdown) throw { code: "invalid_json" };
+      actual = { perfil, ...r };
+      $("f-empresa").value = r.empresa || ""; $("f-cargo").value = r.cargo || "";
+      await validar();
+      status($("st-adaptar"), `CV adaptado desde el perfil ${perfil}.`, "ok");
+    } catch (e) {
+      status($("st-adaptar"), e?.code && e.code in { invalid_json: 1, not_granted: 1, rate_limited: 1, prompt_too_large: 1, cancelled: 1, sampling_disabled: 1, upstream_error: 1, refused: 1 } ? sampleMsg(e) : mcpMsg(e), e?.code === "cancelled" ? "" : "err");
+    } finally {
+      $("adaptar").disabled = false; $("detener").hidden = true;
+    }
+  }
+
+  async function validar() {
+    const v = await call("cv_validar", { markdown: actual.markdown });
+    actual.validacion = v;
+    pintarRevision();
+    pintarPreview(v.html);
+  }
+
+  function pintarRevision() {
+    const a = actual, v = a.validacion;
+    $("paso2").hidden = false;
+    const kw = $("kw"); kw.replaceChildren();
+    for (const k of a.keywords_cubiertas || []) { const c = document.createElement("span"); c.className = "chip"; c.textContent = k; kw.append(c); }
+    for (const k of a.keywords_faltantes || []) { const c = document.createElement("span"); c.className = "chip miss"; c.textContent = "sin respaldo: " + k; kw.append(c); }
+    const ul = $("hallazgos"); ul.replaceChildren();
+    const items = v.hallazgos.length ? v.hallazgos : [{ nivel: "okmsg", detalle: "Pasa todas las reglas." }];
+    for (const h of items) { const li = document.createElement("li"); li.className = h.nivel === "error" ? "error" : h.nivel === "okmsg" ? "okmsg" : ""; li.textContent = (h.nivel === "error" ? "✗ " : h.nivel === "okmsg" ? "✓ " : "⚠ ") + h.detalle; ul.append(li); }
+    $("generar").disabled = !v.ok;
+    $("ajustar").hidden = v.hallazgos.length === 0;
+    const libres = -v.lineasDeMas;
+    $("pv-medidas").textContent = `${v.paginas} pág. · ${libres >= 0 ? `~${libres} líneas libres` : `sobran ~${v.lineasDeMas}`} · resumen ${v.lineasResumen} líneas`;
+    const meta = $("pv-meta"); meta.hidden = false; meta.replaceChildren();
+    for (const [k, val] of [["Perfil", a.perfil], ["Empresa", a.empresa], ["Cargo", a.cargo]]) { const s = document.createElement("span"); s.innerHTML = `${k}: <b></b>`; s.querySelector("b").textContent = val || "—"; meta.append(s); }
+  }
+
+  // Vista previa: el HTML del renderizador real, aislado en un shadow root y escalado al ancho disponible.
+  let sombra = null;
+  function pintarPreview(html) {
+    $("pv-vacio").hidden = true; $("pv-box").hidden = false;
+    const sheet = $("pv-sheet");
+    sombra = sombra ?? sheet.attachShadow({ mode: "open" });
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const css = [...doc.querySelectorAll("style")].map((s) => s.textContent).join("\n").replace(/@page[^}]*}/g, "");
+    sombra.innerHTML = `<style>${css} :host{display:block} .pagina{padding:48px;min-height:1056px;background:#fff;color:#000}</style><div class="pagina">${doc.body.innerHTML}</div>`;
+    escalar();
+  }
+  function escalar() {
+    const box = $("pv-box"), sheet = $("pv-sheet");
+    if (box.hidden) return;
+    const w = box.parentElement.clientWidth - 32;
+    const k = Math.min(1, w / 816);
+    sheet.style.transform = `scale(${k})`;
+    box.style.width = 816 * k + "px"; box.style.height = sheet.offsetHeight * k + "px";
+  }
+  addEventListener("resize", escalar);
+
+  async function ajustar() {
+    ctl = new AbortController();
+    $("ajustar").disabled = true;
+    status($("st-pdf"), "Ajustando el CV a las reglas…");
+    try {
+      const v = actual.validacion;
+      const r = await sample.json(
+        `Corrige este CV para que pase TODAS las reglas y quepa en 1 página, cambiando lo mínimo. Problemas detectados por el verificador:
+${v.hallazgos.map((h) => "- " + h.detalle).join("\n")}
+${v.lineasDeMas > 0 ? `Sobran ~${v.lineasDeMas} líneas: borra viñetas de menor relevancia para la oferta (nunca agregues).` : ""}
+${v.lineasResumen > 4 ? "Acorta el Resumen a 4 líneas (~450 caracteres) manteniendo la cadena canónica literal." : ""}
+
+${reglasCon()}
+
+Responde SOLO JSON: {"markdown": "el CV corregido completo"}
+
+=== CV ===
+${actual.markdown}`,
+        { signal: ctl.signal, cache: false },
+      );
+      if (!r?.markdown) throw { code: "invalid_json" };
+      actual.markdown = r.markdown;
+      await validar();
+      status($("st-pdf"), actual.validacion.ok ? "Ajustado: ya pasa las reglas." : "Aún quedan problemas; revisa la lista.", actual.validacion.ok ? "ok" : "err");
+    } catch (e) {
+      status($("st-pdf"), e?.code === "tool_error" ? mcpMsg(e) : sampleMsg(e), "err");
+    } finally { $("ajustar").disabled = false; }
+  }
+
+  async function generar() {
+    $("generar").disabled = true;
+    status($("st-pdf"), "Generando el PDF en tu vault (la app puede pedirte confirmar)…");
+    try {
+      const nombre = `CV_RDF_${slug(actual.empresa || "Empresa")}_${slug(actual.cargo || actual.perfil)}_${hoy().replaceAll("-", "")}`;
+      pdf = await call("cv_generar_pdf", { markdown: actual.markdown, nombre });
+      status($("st-pdf"), "PDF guardado en vault/cv/generados/" + pdf.archivo, "ok");
+      $("descargar").hidden = !downloads;
+      $("paso3").hidden = false;
+      if (!$("f-fecha").value) $("f-fecha").value = masDias(14);
+    } catch (e) {
+      status($("st-pdf"), mcpMsg(e), "err");
+    } finally { $("generar").disabled = !actual?.validacion?.ok; }
+  }
+
+  async function descargar() {
+    try {
+      const bytes = Uint8Array.from(atob(pdf.base64), (c) => c.charCodeAt(0));
+      await downloads.save({ filename: pdf.archivo, data: new Blob([bytes], { type: "application/pdf" }) });
+    } catch (e) {
+      if (e?.code !== "declined") status($("st-pdf"), "No se pudo ofrecer la descarga; el PDF igual está en tu vault.", "err");
+    }
+  }
+
+  async function registrar(ev) {
+    ev.preventDefault();
+    $("registrar").disabled = true;
+    status($("st-reg"), "Guardando en vault/postulaciones…");
+    try {
+      const total = (actual.keywords_oferta || []).length;
+      const cub = (actual.keywords_cubiertas || []).length;
+      const r = await call("postulacion_guardar", {
+        empresa: $("f-empresa").value.trim(),
+        cargo: $("f-cargo").value.trim(),
+        estado: $("f-estado").value,
+        area: actual.area || undefined,
+        fecha: hoy(),
+        canal: $("f-canal").value.trim() || undefined,
+        cv_perfil: actual.perfil,
+        cv_pdf: pdf?.archivo,
+        keywords_cubiertas: total ? `${Math.round((cub / total) * 100)}% (${(actual.keywords_cubiertas || []).join(", ")})` : undefined,
+        proxima_accion: $("f-accion").value.trim() || undefined,
+        proxima_fecha: $("f-fecha").value || undefined,
+        url: $("url").value.trim() || undefined,
+        notas: $("f-notas").value.trim() || undefined,
+      });
+      status($("st-reg"), r.creada ? "Postulación registrada en el Tracker." : "Postulación actualizada en el Tracker.", "ok");
+      postulaciones = [];
+    } catch (e) {
+      status($("st-reg"), mcpMsg(e), "err");
+    } finally { $("registrar").disabled = false; }
+  }
+
+  // ── Tracker ──
+  async function cargarTracker() {
+    status($("st-tracker"), "Leyendo vault/postulaciones…");
+    try {
+      postulaciones = await call("postulaciones_listar");
+      pintarTracker();
+      status($("st-tracker"), `${postulaciones.length} postulaciones`);
+    } catch (e) {
+      status($("st-tracker"), mcpMsg(e), "err");
+      $("proximas").innerHTML = "";
+    }
+  }
+
+  function pintarTracker() {
+    const H = hoy();
+    const env = postulaciones.filter((p) => p.estado !== "No enviada");
+    const av = env.filter((p) => AVANCE.includes(p.estado));
+    const maduras = env.filter((p) => p.fecha && (new Date(H) - new Date(p.fecha)) / 864e5 >= 10);
+    const avm = maduras.filter((p) => AVANCE.includes(p.estado));
+    $("s-total").textContent = postulaciones.length;
+    $("s-env").textContent = env.length;
+    $("s-av").textContent = av.length;
+    $("s-tasa").textContent = maduras.length ? Math.round((avm.length / maduras.length) * 100) + "%" : "—";
+    $("s-tasa-k").textContent = `Tasa de contacto (${avm.length} de ${maduras.length}, ≥ 10 días)`;
+
+    const clase = (f) => (!f ? "" : f < H ? "late" : f === H ? "today" : "");
+    const prox = postulaciones.filter((p) => p.proxima_fecha && p.estado !== "Descartado").sort((a, b) => String(a.proxima_fecha).localeCompare(String(b.proxima_fecha)));
+    const ul = $("proximas"); ul.replaceChildren();
+    if (!prox.length) { const li = document.createElement("li"); li.innerHTML = '<span></span><span class="muted">Sin acciones pendientes.</span>'; ul.append(li); }
+    for (const p of prox.slice(0, 6)) {
+      const li = document.createElement("li"); li.className = clase(p.proxima_fecha);
+      const d = document.createElement("span"); d.className = "due " + clase(p.proxima_fecha); d.textContent = p.proxima_fecha === H ? "hoy" : p.proxima_fecha;
+      const t = document.createElement("span"); t.innerHTML = "<b></b> — <span></span> <span class='muted'></span>";
+      t.children[0].textContent = p.proxima_accion || "Revisar"; t.children[1].textContent = p.empresa; t.children[2].textContent = "· " + p.cargo;
+      li.append(d, t); ul.append(li);
+    }
+
+    const tb = $("filas"); tb.replaceChildren();
+    for (const p of [...postulaciones].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)))) {
+      const tr = document.createElement("tr");
+      const c = (html) => { const td = document.createElement("td"); td.innerHTML = html; tr.append(td); return td; };
+      c("").textContent = p.fecha || ""; tr.lastChild.className = "date";
+      const pc = c('<div class="co"></div><div class="ca"></div>'); pc.children[0].textContent = p.empresa; pc.children[1].textContent = p.cargo;
+      c("").textContent = p.canal || "—";
+      c("").textContent = p.cv_perfil || "—";
+      const sel = document.createElement("select"); sel.id = "estado-" + slug(p.nota); sel.setAttribute("aria-label", "Estado de " + p.empresa);
+      for (const e of ESTADOS) sel.add(new Option(e, e, false, e === p.estado));
+      sel.onchange = () => cambiarEstado(p, sel);
+      c("").append(sel);
+      const pa = c('<span></span> <span class="due"></span>'); pa.children[0].textContent = p.proxima_accion || "—"; pa.children[1].textContent = p.proxima_fecha || ""; pa.children[1].className = "due " + clase(p.proxima_fecha);
+      tb.append(tr);
+    }
+  }
+
+  async function cambiarEstado(p, sel) {
+    const anterior = p.estado;
+    sel.disabled = true;
+    status($("st-tracker"), `Guardando ${p.empresa}…`);
+    try {
+      await call("postulacion_guardar", { empresa: p.empresa, cargo: p.cargo, estado: sel.value, notas: `Estado: ${anterior} → ${sel.value}` });
+      p.estado = sel.value; pintarTracker();
+      status($("st-tracker"), `${p.empresa}: ${sel.value}.`, "ok");
+    } catch (e) {
+      sel.value = anterior; status($("st-tracker"), mcpMsg(e), "err");
+    } finally { sel.disabled = false; }
+  }
+
+  // ── Arranque: la página se ve sin capacidades y las enciende al resolver ──
+  for (const e of ESTADOS) $("f-estado").add(new Option(e, e, false, e === "Postulado"));
+  $("adaptar").onclick = adaptar;
+  $("detener").onclick = () => ctl?.abort();
+  $("ajustar").onclick = ajustar;
+  $("generar").onclick = generar;
+  $("descargar").onclick = descargar;
+  $("paso3").onsubmit = registrar;
+  $("refrescar").onclick = cargarTracker;
+
+  (async () => {
+    const use = (n) => (window.claude?.use ? window.claude.use(n).catch(() => null) : Promise.resolve(null));
+    [mcp, sample, downloads] = await Promise.all([use("mcp"), use("sample"), use("downloads")]);
+    if (!sample) $("adaptar").disabled = true;
+    if (!mcp) { banner("Esta vista no puede usar tu servidor local. Abre el Postulador en la app de escritorio de Claude en tu PC."); return; }
+    try {
+      ctx = await call("cv_contexto");
+      for (const p of ctx.perfiles) $("perfil").add(new Option(p.perfil, p.perfil));
+    } catch (e) {
+      banner(mcpMsg(e), e?.code !== "server_not_connected");
+    }
+    if (location.hash === "#tracker") mostrar("tracker");
+  })();
+})();
+</script>

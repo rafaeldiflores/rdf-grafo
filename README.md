@@ -65,3 +65,21 @@ directos a un nodo (`/#MAZA`). Ver [`web/README.md`](web/README.md).
 - Propiedades por lista blanca; el cuerpo sale sin la sección `## Bitácora` y
   con los links a notas privadas redactados.
 - Cubierto por tests de casos borde y por invariantes sobre 300 grafos aleatorios.
+
+## `cv/`, `postulador-mcp/` y `postulador/`
+
+Sistema de postulaciones sobre el mismo vault privado:
+
+- [`cv/`](cv/README.md): CV ATS de 1 página, Markdown → HTML → PDF, con un
+  verificador de reglas (secciones estándar, título literal, fechas fijas, textos
+  vetados) y medición real de páginas.
+- [`postulador-mcp/`](postulador-mcp/README.md): servidor MCP remoto (Cloudflare
+  Worker) con OAuth de GitHub para un único usuario, listas blancas de rutas y PDF
+  con Browser Run. Lo usa claude.ai como conector.
+- `postulador/`: página (artefacto de Claude) que adapta un CV base a una oferta,
+  lo valida, genera el PDF y registra la postulación en el Tracker.
+
+```
+claude.ai / artefacto ──OAuth──▶ Worker ──Contents API──▶ vault (cv/, postulaciones/)
+                                   └──Browser Run──▶ PDF
+```

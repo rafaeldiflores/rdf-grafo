@@ -13,6 +13,20 @@ const ESCRITURA = [/^postulaciones\/[^/]+\.md$/, /^cv\/generados\/[^/]+\.(md|pdf
 /** Carpetas listables. */
 const LISTABLES = new Set(['cv/base', 'postulaciones']);
 
+/**
+ * Carpetas de las que se lee SOLO el frontmatter (stacks, aliases, estados: lo que
+ * necesitan brechas y auditoría). Nunca el cuerpo, que lleva la Bitácora: se corta
+ * en `frontmatters()` apenas llega la respuesta, antes de que nada lo use.
+ * No están en LECTURA a propósito: `leer()` devolvería la nota completa.
+ */
+const SOLO_FRONTMATTER = new Set(['proyectos', 'tecnologias', 'aprendizaje']);
+
+/** Bloque `---…---` inicial, o null si la nota no tiene. Todo lo demás se descarta. */
+export function soloFrontmatter(raw: string): string | null {
+  const m = raw.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
+  return m ? `---\n${m[1]}\n---\n` : null;
+}
+
 const segura = (ruta: string) => !ruta.includes('..') && !ruta.startsWith('/') && !ruta.includes('\\');
 export const puedeLeer = (ruta: string) => segura(ruta) && LECTURA.some((re) => re.test(ruta));
 export const puedeEscribir = (ruta: string) => segura(ruta) && ESCRITURA.some((re) => re.test(ruta));
@@ -67,6 +81,37 @@ export class Vault {
     if (r.status === 404) return [];
     if (!r.ok) throw new Error(`GitHub ${r.status} al listar ${carpeta}`);
     return ((await r.json()) as { name: string; type: string }[]).filter((f) => f.type === 'file' && f.name.endsWith('.md')).map((f) => f.name);
+  }
+
+  /**
+   * Frontmatter de todas las notas de una carpeta, en UNA llamada a la API GraphQL
+   * de GitHub (el plan Free de Workers permite 50 subrequests por invocación; por
+   * REST serían ~50 solo para proyectos y tecnologías). Mismo token, solo lectura.
+   */
+  async frontmatters(carpeta: string): Promise<{ nombre: string; frontmatter: string }[]> {
+    if (!SOLO_FRONTMATTER.has(carpeta)) throw new Error(`Lectura de frontmatter no permitida: ${carpeta}`);
+    const [owner, name] = this.repo.split('/');
+    const r = await this.http('https://api.github.com/graphql', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${this.token}`, 'content-type': 'application/json', 'user-agent': 'rdf-grafo-postulador' },
+      body: JSON.stringify({
+        query: 'query($owner:String!,$name:String!,$expr:String!){repository(owner:$owner,name:$name){object(expression:$expr){... on Tree{entries{name type object{... on Blob{text}}}}}}}',
+        variables: { owner, name, expr: `${this.rama}:${carpeta}` },
+      }),
+    });
+    if (!r.ok) throw new Error(`GitHub ${r.status} al leer ${carpeta}`);
+    const json = (await r.json()) as {
+      data?: { repository?: { object?: { entries?: { name: string; type: string; object?: { text?: string | null } }[] } | null } };
+      errors?: { message: string }[];
+    };
+    if (json.errors?.length) throw new Error(`GitHub GraphQL: ${json.errors[0]!.message}`);
+    const out: { nombre: string; frontmatter: string }[] = [];
+    for (const e of json.data?.repository?.object?.entries ?? []) {
+      if (e.type !== 'blob' || !e.name.endsWith('.md')) continue;
+      const fm = soloFrontmatter(e.object?.text ?? ''); // el cuerpo muere aquí
+      if (fm) out.push({ nombre: e.name, frontmatter: fm });
+    }
+    return out;
   }
 
   /** Crea o reemplaza un archivo con un commit. Devuelve si ya existía. */

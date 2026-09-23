@@ -86,6 +86,33 @@ export class PostuladorMCP extends McpAgent<Env, Record<string, never>, Props> {
     );
 
     this.server.registerTool(
+      'brechas',
+      {
+        title: 'Brechas frente a una oferta',
+        description:
+          'Clasifica lo que pide una oferta contra el grafo de Rafa: demostrada (logros de la BASE), declarada (stack de un proyecto), mencionada (texto de un logro, sin nota de tecnología), conocida (nota sin uso) o brecha. Extrae tú los requisitos de la oferta y pásalos en `requisitos`; `oferta` (texto) detecta además tecnologías conocidas. Devuelve {requisitos, cobertura: {respaldadas, total}}; respaldadas = demostrada + declarada + mencionada. No inventa respaldo.',
+        inputSchema: {
+          requisitos: z.array(z.string()).default([]).describe('Términos que pide la oferta, p. ej. ["React", "Docker"]'),
+          oferta: z.string().optional().describe('Texto de la oferta (opcional)'),
+        },
+        annotations: soloLectura,
+      },
+      ({ requisitos, oferta }) => this.herramienta((p) => p.brechas(requisitos, oferta ?? ''))(),
+    );
+
+    this.server.registerTool(
+      'auditar_cv',
+      {
+        title: 'Auditoría de frescura del CV',
+        description:
+          '¿Están al día la BASE y los CVs base con los proyectos y sus stacks? Proyectos sin logros, tecnologías del stack que la BASE no nombra y tecnologías demostradas que ningún CV base muestra, cada una con su acción. Las reglas de versión (contra los repos) solo corren en local y se listan en `omitidas`. No escribe nada.',
+        inputSchema: {},
+        annotations: soloLectura,
+      },
+      () => this.herramienta((p) => p.auditar())(),
+    );
+
+    this.server.registerTool(
       'postulaciones_listar',
       {
         title: 'Listar postulaciones',

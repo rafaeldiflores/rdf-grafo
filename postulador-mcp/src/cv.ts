@@ -9,6 +9,12 @@ import { parseCv, parseEncabezado } from '../../cv/src/parse.ts';
 import { ESTADOS, fusionarPostulacion, leerPostulacion, nombreSeguro, rutaPostulacion, type PostulacionInput } from '../../cv/src/postulaciones.ts';
 import { extraerInstrucciones, RUTA_INSTRUCCIONES } from '../../cv/src/instrucciones.ts';
 import { renderHtml } from '../../cv/src/render.ts';
+import { auditar } from '../../ingest/src/auditoria.ts';
+import { brechasDe } from '../../ingest/src/brechas.ts';
+import { addLogros, buildGraph } from '../../ingest/src/graph.ts';
+import { parseLogros, RUTA_BASE } from '../../ingest/src/logros.ts';
+import type { Graph } from '../../ingest/src/model.ts';
+import { parseNote, type ParsedNote } from '../../ingest/src/parser.ts';
 import type { PdfNube } from './pdf.ts';
 import { b64, type Vault } from './vault.ts';
 
@@ -61,6 +67,44 @@ export class Postulador {
     await this.vault.escribir(`cv/generados/${base}.md`, markdown, `postulador: fuente de ${base}`);
     await this.vault.escribir(`cv/generados/${base}.pdf`, pdf, `postulador: PDF ${base}`);
     return { archivo: `${base}.pdf`, ruta: `cv/generados/${base}.pdf`, base64: b64.encode(pdf) };
+  }
+
+  /**
+   * Grafo mínimo para brechas y auditoría: proyectos, tecnologías y aprendizajes
+   * (solo frontmatter, ver Vault.frontmatters) + logros de la BASE. 4 subrequests.
+   */
+  private async grafo(): Promise<Graph> {
+    const carpetas = ['proyectos', 'tecnologias', 'aprendizaje'] as const;
+    const [base, ...notas] = await Promise.all([this.vault.leer(RUTA_BASE), ...carpetas.map((c) => this.vault.frontmatters(c))]);
+    const parsed = notas.flatMap((xs, i) => xs.map((x) => parseNote(`${carpetas[i]}/${x.nombre}`, x.frontmatter))).filter((n): n is ParsedNote => n !== null);
+    const { graph } = buildGraph(parsed);
+    addLogros(graph, parseLogros(base ?? '').logros);
+    return graph;
+  }
+
+  /**
+   * Qué pide una oferta frente a lo que el grafo respalda (ver ingest/src/brechas.ts).
+   * Requisitos vacíos y oferta ausente son válidos: devuelve una lista vacía.
+   */
+  async brechas(requisitos: string[] = [], oferta = '') {
+    const reqs = brechasDe(await this.grafo(), requisitos, oferta);
+    const respaldadas = reqs.filter((r) => r.nivel === 'demostrada' || r.nivel === 'declarada' || r.nivel === 'mencionada').length;
+    return { requisitos: reqs, cobertura: { respaldadas, total: reqs.length } };
+  }
+
+  /**
+   * Auditoría de frescura sin repos locales: el Worker no ve los repos de los
+   * proyectos, así que las reglas de versión quedan fuera y se dice explícitamente.
+   */
+  async auditar() {
+    const [graph, base, nombres] = await Promise.all([this.grafo(), this.vault.leer(RUTA_BASE), this.vault.listar('cv/base')]);
+    const cvs = Object.fromEntries(await Promise.all(nombres.map(async (n) => [n.slice(0, -'.md'.length), (await this.vault.leer(`cv/base/${n}`)) ?? ''] as const)));
+    const hallazgos = auditar({ graph, base: base ?? '', cvs, repos: {} }).map(({ donde: _d, ...h }) => h);
+    return {
+      hallazgos,
+      omitidas: ['versión del proyecto vs su repo', 'versión mayor de cada tecnología vs la instalada'],
+      nota: 'Las reglas de versión necesitan los repos locales: corren con `npm run auditar-cv` en el PC de Rafa.',
+    };
   }
 
   async listarPostulaciones() {

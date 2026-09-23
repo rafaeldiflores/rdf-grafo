@@ -16,7 +16,7 @@ export const RUTA_INSTRUCCIONES = 'cv/instrucciones.md';
 export function extraerInstrucciones(raw: string | null): string | null {
   if (!raw) return null;
   const cuerpo = raw
-    .replace(/^﻿?---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '')
+    .replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '')
     .replace(/<!--[\s\S]*?-->/g, '')
     .trim();
   return cuerpo || null;

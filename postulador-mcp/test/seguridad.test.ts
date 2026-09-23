@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { Postulador } from '../src/cv.ts';
 import { b64, puedeEscribir, puedeLeer, Vault } from '../src/vault.ts';
+import { githubFalso } from './github-falso.ts';
 
 describe('listas blancas de rutas', () => {
   it.each(['cv/BASE_Experiencia.md', 'cv/encabezado.md', 'cv/instrucciones.md', 'cv/base/Mobile.md', 'postulaciones/Acme - Dev.md'])('permite leer %s', (r) => {
@@ -36,27 +37,6 @@ describe('listas blancas de rutas', () => {
   ])('niega escribir %s', (r) => expect(puedeEscribir(r)).toBe(false));
 });
 
-/** GitHub falso en memoria: registra cada request para verificar qué se intentó. */
-function githubFalso(archivos: Record<string, string>) {
-  const log: { metodo: string; ruta: string; body?: { message: string; content: string; sha?: string } }[] = [];
-  const http = (async (url: string | URL, init?: RequestInit) => {
-    const u = new URL(String(url));
-    const ruta = decodeURIComponent(u.pathname.replace(/^\/repos\/[^/]+\/[^/]+\/contents\//, ''));
-    const metodo = init?.method ?? 'GET';
-    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-    log.push({ metodo, ruta, body });
-    expect(new Headers(init?.headers).get('authorization')).toBe('Bearer TOKEN');
-    if (metodo === 'PUT') {
-      archivos[ruta] = new TextDecoder().decode(b64.decode(body.content));
-      return new Response('{}', { status: 201 });
-    }
-    const hijos = Object.keys(archivos).filter((k) => k.startsWith(ruta + '/') && !k.slice(ruta.length + 1).includes('/'));
-    if (hijos.length) return Response.json(hijos.map((k) => ({ name: k.split('/').pop(), type: 'file' })));
-    if (!(ruta in archivos)) return new Response('{}', { status: 404 });
-    return Response.json({ sha: 'sha-' + ruta, content: b64.encode(new TextEncoder().encode(archivos[ruta])) });
-  }) as typeof fetch;
-  return { http, log, archivos };
-}
 
 const ENCABEZADO = '---\nnombre: "ANA"\nubicacion: "Chile"\ntelefono: "+56"\nemail: "a@b.cl"\nfechas_fijas: { MAZA: "May 2024" }\nnunca_incluir: ["Proyecto Vetado"]\n---\n';
 const CV = `---
@@ -174,3 +154,4 @@ describe('Postulador', () => {
     expect(l[0]).toMatchObject({ empresa: 'Acme', fecha: '2026-09-01' });
   });
 });
+

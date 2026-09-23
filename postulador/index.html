@@ -137,6 +137,14 @@
   .pill.s-Descartado { background: var(--err-soft); color: var(--err); }
   .pill.s-No { background: var(--paper); color: var(--muted); border: 1px solid var(--line); }
   .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+  .ofertas { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+  .oferta { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 6px; }
+  .oferta .t { font-weight: 600; }
+  .oferta .m { font-size: 0.85rem; color: var(--muted); }
+  .oferta .c { font-size: 0.88rem; }
+  .oferta .avisos { display: flex; flex-wrap: wrap; gap: 6px; }
+  .oferta .actions .btn { padding: 6px 12px; font-size: 0.85rem; }
+  .oferta.invalida { border-style: dashed; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
@@ -148,6 +156,7 @@
     </div>
     <nav class="tabs" role="tablist" aria-label="Secciones">
       <button role="tab" id="tab-postular" aria-selected="true" aria-controls="view-postular">Postular</button>
+      <button role="tab" id="tab-bandeja" aria-selected="false" aria-controls="view-bandeja">Bandeja</button>
       <button role="tab" id="tab-tracker" aria-selected="false" aria-controls="view-tracker">Tracker</button>
     </nav>
   </header>
@@ -240,6 +249,17 @@
     </div>
   </section>
 
+  <!-- ───────────── Bandeja (ofertas que encuentra Spark) ───────────── -->
+  <section id="view-bandeja" role="tabpanel" aria-labelledby="tab-bandeja" hidden>
+    <div class="section-head">
+      <div><h2>Ofertas encontradas</h2><p class="muted" style="font-size:0.88rem">Las que tus rutinas de Gemini Spark dejan en el Sheet “Bandeja de ofertas”. Se ocultan las que ya están en tu Tracker o descartaste.</p></div>
+      <button class="btn ghost" id="refrescar-bandeja" type="button">Actualizar</button>
+    </div>
+    <p class="status" id="st-bandeja" role="status"></p>
+    <ul class="ofertas" id="ofertas"></ul>
+    <details id="ocultas-det" hidden><summary class="muted" id="ocultas-sum"></summary><ul class="ofertas" id="ocultas" style="margin-top:10px"></ul></details>
+  </section>
+
   <!-- ───────────── Tracker ───────────── -->
   <section id="view-tracker" role="tabpanel" aria-labelledby="tab-tracker" hidden>
     <div class="stats" id="stats">
@@ -271,7 +291,7 @@
   const $ = (id) => document.getElementById(id);
 
   // ── Estado de la página ──
-  let mcp = null, sample = null, downloads = null;
+  let mcp = null, sample = null, downloads = null, db = null;
   let ctx = null;          // cv_contexto: BASE, perfiles, reglas
   let actual = null;       // { perfil, empresa, cargo, area, markdown, keywords_*, validacion }
   let pdf = null;          // { archivo, base64 }
@@ -314,15 +334,17 @@
   };
 
   // ── Pestañas (#tracker abre directo el Tracker) ──
-  const tabs = { postular: $("tab-postular"), tracker: $("tab-tracker") };
+  const tabs = { postular: $("tab-postular"), bandeja: $("tab-bandeja"), tracker: $("tab-tracker") };
   const mostrar = (nombre) => {
     for (const [k, b] of Object.entries(tabs)) {
       b.setAttribute("aria-selected", String(k === nombre));
       $("view-" + k).hidden = k !== nombre;
     }
     if (nombre === "tracker") cargarTracker();
+    if (nombre === "bandeja") cargarBandeja();
   };
   tabs.postular.onclick = () => mostrar("postular");
+  tabs.bandeja.onclick = () => mostrar("bandeja");
   tabs.tracker.onclick = () => mostrar("tracker");
 
   // ── Prompts ──
@@ -671,6 +693,155 @@ ${actual.markdown}`,
     } finally { $("registrar").disabled = false; }
   }
 
+  // ── Bandeja: ofertas que Gemini Spark deja en un Sheet (skill bandeja-ofertas) ──
+  // Spark escribe con su propio entorno; aquí solo se LEE el Sheet con el conector de
+  // Google Drive del usuario. Cada fila se valida contra el contrato de la skill: una
+  // fila mal escrita se muestra marcada, nunca rompe la página. Nada entra al vault
+  // hasta que Rafa adapta o registra la oferta en el flujo normal.
+  const DRIVE = "Google Drive";
+  const BANDEJA_ID = "1qp3dgY26lCUrFIVqkH2UUw5RMLdBy4XHcEF6d-soQn4";
+  const COLUMNAS = ["id", "detectada", "publicada", "empresa", "cargo", "modalidad", "ubicacion", "fuente", "compatibilidad", "texto"];
+  const FECHA = /^\d{4}-\d{2}-\d{2}$/;
+  const plano = (s) => String(s ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  let ofertas = [];       // filas válidas o no, con sus avisos
+  let descartadas = new Set();
+
+  /**
+   * El conector devuelve el Sheet como tabla Markdown: celdas separadas por "|",
+   * con "\|" para un pipe literal. Una línea que no empieza con "|" continúa la
+   * celda anterior (texto con saltos de línea).
+   */
+  function parseTabla(md) {
+    const lineas = [];
+    for (const l of String(md).replaceAll("\r\n", "\n").split("\n")) {
+      if (l.trimStart().startsWith("|") || !lineas.length) lineas.push(l); else lineas[lineas.length - 1] += " " + l.trim();
+    }
+    const filas = lineas
+      .filter((l) => l.trimStart().startsWith("|"))
+      .map((l) => l.trim().replace(/^\|/, "").replace(/(?<!\\)\|$/, "").split(/(?<!\\)\|/).map((c) => c.trim().replaceAll("\\|", "|")));
+    const i = filas.findIndex((f) => plano(f[0]) === "id");
+    if (i < 0) throw new Error("El Sheet no tiene la fila de encabezados (id, detectada, …).");
+    const cab = filas[i].map(plano);
+    return filas.slice(i + 1)
+      .filter((f) => f.some((c) => c))
+      .map((f) => Object.fromEntries(COLUMNAS.map((k) => [k, f[cab.indexOf(k)] ?? ""])));
+  }
+
+  /** Avisos de una fila frente al contrato de la skill (vacío = cumple). */
+  function avisosFila(o) {
+    const a = [];
+    if (!/^https?:\/\//.test(o.id)) a.push("sin URL del aviso");
+    if (!o.empresa || !o.cargo) a.push("falta empresa o cargo");
+    if (o.detectada && !FECHA.test(o.detectada)) a.push("fecha detectada mal escrita");
+    if (o.publicada && !FECHA.test(o.publicada)) a.push("fecha publicada mal escrita");
+    if (!o.texto) a.push("sin texto del aviso");
+    return a;
+  }
+
+  // Empresa y cargo comparables: sin tildes, sin "/a" "-a" "(a)", sin razón social ni paréntesis.
+  const normCargo = (s) => plano(s).replace(/\(a\)|[/-]a\b/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+  const normEmpresa = (s) => plano(s).replace(/\([^)]*\)/g, " ").replace(/\b(s\.?a\.?|spa|ltda|limitada|chile)\b/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
+
+  /** La postulación del Tracker que corresponde a la oferta (por URL, o por empresa + cargo). */
+  function enTracker(o) {
+    const e = normEmpresa(o.empresa), c = normCargo(o.cargo);
+    return postulaciones.find((p) => {
+      if (p.url && p.url === o.id) return true;
+      const pe = normEmpresa(p.empresa), pc = normCargo(p.cargo);
+      const mismaEmpresa = e && pe && (e === pe || e.startsWith(pe) || pe.startsWith(e));
+      return mismaEmpresa && (c === pc || c.includes(pc) || pc.includes(c));
+    });
+  }
+
+  /** Id estable para el descarte: hash corto de la URL (los ids de documento no aceptan "/"). */
+  const idOferta = (url) => { let h = 2166136261; for (const ch of url) h = Math.imul(h ^ ch.codePointAt(0), 16777619) >>> 0; return "o" + h.toString(36); };
+
+  async function cargarBandeja() {
+    status($("st-bandeja"), "Leyendo la Bandeja y tu Tracker…");
+    try {
+      const [hoja, posts, desc] = await Promise.all([
+        mcp.callTool(DRIVE, "read_file_content", { fileId: BANDEJA_ID }, { cache: false }),
+        postulaciones.length ? postulaciones : call("postulaciones_listar"),
+        db ? db.collection("descartadas").get().catch(() => null) : null,
+      ]);
+      postulaciones = posts;
+      if (desc) descartadas = new Set(desc.docs.map((d) => d.id));
+      const md = typeof hoja.payload === "string" ? hoja.payload : hoja.payload?.fileContent;
+      if (typeof md !== "string") throw new Error("El conector de Drive no devolvió el contenido del Sheet.");
+      ofertas = parseTabla(md).map((o) => ({ ...o, avisos: avisosFila(o), tracker: enTracker(o) }));
+      pintarBandeja();
+    } catch (e) {
+      console.warn("[postulador] bandeja falló:", e);
+      const msg = e?.code === "server_not_connected" || e?.code === "not_in_manifest"
+        ? "Conecta Google Drive en claude.ai → Configuración → Conectores para ver la Bandeja."
+        : e?.code ? mcpMsg(e) : e?.message || String(e);
+      status($("st-bandeja"), msg, "err");
+    }
+  }
+
+  function tarjetaOferta(o) {
+    const li = document.createElement("li");
+    li.className = "oferta" + (o.avisos.length ? " invalida" : "");
+    const t = document.createElement("div"); t.className = "t"; t.textContent = `${o.cargo || "(sin cargo)"} — ${o.empresa || "(sin empresa)"}`;
+    const m = document.createElement("div"); m.className = "m";
+    m.textContent = [o.publicada && `publicada ${o.publicada}`, o.modalidad, o.ubicacion, o.fuente].filter(Boolean).join(" · ");
+    li.append(t, m);
+    if (o.compatibilidad) { const c = document.createElement("div"); c.className = "c"; c.textContent = o.compatibilidad; li.append(c); }
+    const av = document.createElement("div"); av.className = "avisos";
+    const chip = (cls, txt) => { const s = document.createElement("span"); s.className = "chip" + (cls ? " " + cls : ""); s.textContent = txt; av.append(s); };
+    if (o.tracker) chip("", `En tu Tracker: ${o.tracker.estado || "registrada"}`);
+    if (descartadas.has(idOferta(o.id))) chip("debil", "Descartada");
+    for (const a of o.avisos) chip("miss", a);
+    if (av.children.length) li.append(av);
+    const acc = document.createElement("div"); acc.className = "actions";
+    const b = (txt, cls, fn) => { const x = document.createElement("button"); x.type = "button"; x.className = "btn " + cls; x.textContent = txt; x.onclick = fn; acc.append(x); return x; };
+    b("Usar esta oferta", "", () => adaptarDesdeBandeja(o)).disabled = !o.texto || !sample;
+    if (db && /^https?:\/\//.test(o.id)) {
+      const d = descartadas.has(idOferta(o.id));
+      b(d ? "Restaurar" : "Descartar", "ghost", (ev) => alternarDescarte(o, ev.currentTarget));
+    }
+    if (/^https?:\/\//.test(o.id)) { const a = document.createElement("a"); a.href = o.id; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Ver aviso"; a.style.fontSize = "0.85rem"; acc.append(a); }
+    li.append(acc);
+    return li;
+  }
+
+  function pintarBandeja() {
+    const orden = (a, b) => String(b.publicada || b.detectada).localeCompare(String(a.publicada || a.detectada));
+    const ocultar = (o) => o.tracker || descartadas.has(idOferta(o.id));
+    const visibles = ofertas.filter((o) => !ocultar(o)).sort(orden);
+    const ocultas = ofertas.filter(ocultar).sort(orden);
+    $("ofertas").replaceChildren(...visibles.map(tarjetaOferta));
+    $("ocultas").replaceChildren(...ocultas.map(tarjetaOferta));
+    $("ocultas-det").hidden = !ocultas.length;
+    $("ocultas-sum").textContent = `${ocultas.length} ya en tu Tracker o descartadas`;
+    const malas = ofertas.filter((o) => o.avisos.length).length;
+    status($("st-bandeja"), ofertas.length
+      ? `${visibles.length} por revisar${malas ? ` · ${malas} con datos incompletos (Spark no cumplió el formato)` : ""}.`
+      : "La Bandeja está vacía: tus rutinas de Spark aún no registran ofertas.", ofertas.length ? "ok" : "");
+  }
+
+  async function alternarDescarte(o, btn) {
+    const ref = db.collection("descartadas").doc(idOferta(o.id));
+    btn.disabled = true;
+    try {
+      if (descartadas.has(ref.id)) { await ref.delete(); descartadas.delete(ref.id); }
+      else { await ref.set({ url: o.id, empresa: o.empresa, cargo: o.cargo, fecha: hoy() }); descartadas.add(ref.id); }
+      pintarBandeja();
+    } catch (e) {
+      btn.disabled = false;
+      status($("st-bandeja"), "No se pudo guardar el descarte (" + (e?.code || "error") + ").", "err");
+    }
+  }
+
+  /** Lleva la oferta al paso 1 y adapta. El texto viene de Spark: puede ser un extracto. */
+  function adaptarDesdeBandeja(o) {
+    $("oferta").value = [`${o.cargo} — ${o.empresa}`, [o.modalidad, o.ubicacion].filter(Boolean).join(" · "), "", o.texto].join("\n").trim();
+    $("url").value = /^https?:\/\//.test(o.id) ? o.id : "";
+    mostrar("postular");
+    status($("st-adaptar"), "Oferta cargada desde la Bandeja. Spark suele dejar un extracto: si el aviso es más largo, pega el texto completo (link en “Ver aviso”) para mejores palabras clave.");
+    $("oferta").focus();
+  }
+
   // ── Tracker ──
   async function cargarTracker() {
     status($("st-tracker"), "Leyendo vault/postulaciones…");
@@ -747,10 +918,11 @@ ${actual.markdown}`,
   $("descargar").onclick = descargar;
   $("paso3").onsubmit = registrar;
   $("refrescar").onclick = cargarTracker;
+  $("refrescar-bandeja").onclick = cargarBandeja;
 
   (async () => {
     const use = (n) => (window.claude?.use ? window.claude.use(n).catch(() => null) : Promise.resolve(null));
-    [mcp, sample, downloads] = await Promise.all([use("mcp"), use("sample"), use("downloads")]);
+    [mcp, sample, downloads, db] = await Promise.all([use("mcp"), use("sample"), use("downloads"), use("db")]);
     if (!sample) $("adaptar").disabled = true;
     if (!mcp) { banner("Esta vista no puede usar conectores. Abre el Postulador en claude.ai con tu sesión iniciada."); return; }
     try {
@@ -761,6 +933,7 @@ ${actual.markdown}`,
       banner(mcpMsg(e), e?.code !== "server_not_connected");
     }
     if (location.hash === "#tracker") mostrar("tracker");
+    if (location.hash === "#bandeja") mostrar("bandeja");
   })();
 })();
 </script>

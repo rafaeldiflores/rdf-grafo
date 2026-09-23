@@ -7,7 +7,8 @@
     "impacto": "tsx src/cli/impacto.ts",
     "sync-neo4j": "tsx src/cli/sync-neo4j.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check-public": "tsx src/cli/check-public.ts"
   },
   "type": "module",
   "dependencies": {

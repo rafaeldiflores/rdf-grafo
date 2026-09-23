@@ -324,10 +324,12 @@
 - Palabras clave (así puntúan los ATS: coincidencia literal): usa la forma EXACTA de la oferta cuando la BASE la respalda (si dice "APIs REST", no "servicios RESTful"); nombra las herramientas requeridas de la oferta en HABILIDADES y también dentro de una viñeta de experiencia que las use; siglas expandidas una vez ("Inteligencia Artificial (IA)"); términos centrales también en inglés una vez. Nada de relleno ni términos que la BASE no respalde.
 - Viñetas: empiezan con verbo en pasado ("Desarrollé", "Implementé") y, cuando la BASE tiene la cifra, incluyen el número. Sin tablas, emojis ni símbolos decorativos.`;
 
-  const reglasCon = () => REGLAS
+  // Las reglas de redacción vienen de vault/cv/instrucciones.md (editables sin republicar esta página);
+  // REGLAS es el respaldo si la nota no existe. Las reglas duras las impone igual el verificador.
+  const reglasCon = () => (ctx.instrucciones || REGLAS)
     .replaceAll("{TITULO}", ctx.reglas.titulo_profesional || "Ingeniero en Informática")
-    .replace("{FECHAS}", Object.entries(ctx.reglas.fechas_fijas).map(([k, v]) => `${k} desde ${v}`).join("; "))
-    .replace("{VETOS}", ctx.reglas.nunca_incluir.join(", "));
+    .replaceAll("{FECHAS}", Object.entries(ctx.reglas.fechas_fijas).map(([k, v]) => `${k} desde ${v}`).join("; "))
+    .replaceAll("{VETOS}", ctx.reglas.nunca_incluir.join(", "));
 
   async function elegirPerfil(oferta) {
     const opciones = ctx.perfiles.map((p) => `- ${p.perfil}: ${(p.markdown.match(/titulo:\s*"([^"]+)"/) || [])[1] || ""}`).join("\n");
@@ -373,7 +375,7 @@ ${oferta.slice(0, 9000)}`,
       actual = { perfil, ...r };
       $("f-empresa").value = r.empresa || ""; $("f-cargo").value = r.cargo || "";
       await validar();
-      status($("st-adaptar"), `CV adaptado desde el perfil ${perfil}.`, "ok");
+      status($("st-adaptar"), `CV adaptado desde el perfil ${perfil}${ctx.instrucciones ? "" : " (con las reglas incluidas: no encontré cv/instrucciones.md)"}.`, "ok");
     } catch (e) {
       status($("st-adaptar"), e?.code && e.code in { invalid_json: 1, not_granted: 1, rate_limited: 1, prompt_too_large: 1, cancelled: 1, sampling_disabled: 1, upstream_error: 1, refused: 1 } ? sampleMsg(e) : mcpMsg(e), e?.code === "cancelled" ? "" : "err");
     } finally {

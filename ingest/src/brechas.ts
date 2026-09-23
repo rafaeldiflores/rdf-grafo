@@ -31,7 +31,7 @@ export interface Requisito {
   logros: string[];
   /** Proyectos cuyo `stack` la declara. */
   proyectos: string[];
-  /** Aprendizajes en curso que la cubren (CUBRE). */
+  /** Aprendizajes (en curso o completados) que la cubren (CUBRE). */
   aprendizajes: string[];
   /** true si no la pidió Claude y salió de buscar tecnologías conocidas en el texto de la oferta. */
   detectada: boolean;
@@ -79,12 +79,19 @@ export function brechasDe(graph: Graph, pedidos: readonly string[], oferta = '')
   };
 
   const out: Requisito[] = [];
-  const vistos = new Set<string>();
+  const vistos = new Map<string, Requisito>();
   const agregar = (r: Requisito) => {
     const clave = r.tecnologia ?? plano(r.termino);
-    if (!clave || vistos.has(clave)) return;
-    vistos.add(clave);
-    out.push(r);
+    if (!clave) return;
+    const previo = vistos.get(clave);
+    if (!previo) {
+      vistos.set(clave, r);
+      out.push(r);
+      return;
+    }
+    // Dos términos pedidos que son la misma nota ("Agile" y "Scrum" → Metodologías ágiles)
+    // se muestran juntos en vez de perder uno. Lo detectado en el texto no se suma.
+    if (!r.detectada && !previo.termino.split(' / ').some((t) => plano(t) === plano(r.termino))) previo.termino += ` / ${r.termino}`;
   };
   for (const p of pedidos) if (p.trim()) agregar(clasificar(p.trim(), false));
   for (const t of tecnologiasEn(oferta, terminos)) agregar(clasificar(t, true));
@@ -113,7 +120,7 @@ export function formatBrechas(reqs: readonly Requisito[]): string {
       const det = [
         r.logros.length && `${r.logros.length} logro(s): ${r.logros.slice(0, 5).join(', ')}${r.logros.length > 5 ? '…' : ''}`,
         r.proyectos.length && `stack de ${r.proyectos.join(', ')}`,
-        r.aprendizajes.length && `en estudio: ${r.aprendizajes.join(', ')}`,
+        r.aprendizajes.length && `formación: ${r.aprendizajes.join(', ')}`,
         r.detectada && 'detectada en el texto de la oferta',
       ].filter(Boolean);
       lines.push(`- ${nombre}${det.length ? ` — ${det.join(' · ')}` : ''}`);

@@ -61,6 +61,11 @@ describe('brechasDe', () => {
     ]);
   });
 
+  it('junta los términos pedidos que apuntan a la misma nota', () => {
+    const reqs = brechasDe(grafo(), ['Firebase', 'Firestore', 'firestore'], 'Stack: Firebase');
+    expect(reqs.map((r) => r.termino)).toEqual(['Firebase / Firestore']);
+  });
+
   it('ordena del respaldo más fuerte al más débil y omite términos vacíos', () => {
     expect(brechasDe(grafo(), ['Docker', ' ', 'Angular', 'Scrum']).map((r) => r.nivel)).toEqual(['demostrada', 'mencionada', 'brecha']);
   });

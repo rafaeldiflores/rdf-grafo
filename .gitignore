@@ -1,0 +1,8 @@
+node_modules/
+dist/
+# Grafos generados: el completo contiene datos privados del vault.
+out/
+# Credenciales (Neo4j, etc.)
+.env
+.env.*
+!.env.example

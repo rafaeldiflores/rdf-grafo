@@ -1,0 +1,24 @@
+{
+  "name": "@grafo/ingest",
+  "version": "0.1.0",
+  "description": "Vault de Obsidian → graph.json → Neo4j",
+  "scripts": {
+    "build-graph": "tsx src/cli/build-graph.ts",
+    "impacto": "tsx src/cli/impacto.ts",
+    "sync-neo4j": "tsx src/cli/sync-neo4j.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "dependencies": {
+    "gray-matter": "^4.0.3",
+    "neo4j-driver": "^6.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  },
+  "private": true
+}

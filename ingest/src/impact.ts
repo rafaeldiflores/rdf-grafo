@@ -4,12 +4,13 @@
  * Reglas de propagación (quién se ve afectado cuando cambia Y):
  *   A -MUESTRA-> Y          → A   (el portafolio muestra MAZA)
  *   A -USA-> Y              → A   (cambia una tecnología → los proyectos que la usan)
+ *   L -DEMUESTRA-> Y        → L   (… y los logros del CV que la mencionan)
  *   A -RELACIONADO_CON- Y   → A   (en ambos sentidos)
  *   Y -PARTE_DE-> P         → P   (el padre resume a sus partes)
  * Se recorre en anchura hasta `maxDepth`, guardando el camino para explicar
  * por qué cada nodo aparece.
  */
-import { HIGHLIGHT_FIELD, PENDING_TIPO, RELATIONS, type Graph, type GraphNode } from './model.ts';
+import { HIGHLIGHT_FIELD, LOGRO_RELATIONS, PENDING_TIPO, RELATIONS, type Graph, type GraphNode } from './model.ts';
 
 export interface AffectedNode {
   id: string;
@@ -55,7 +56,7 @@ export function impactOf(graph: Graph, id: string, maxDepth = 3): ImpactResult {
   const affectedBy = (y: string): [string, string][] => {
     const out: [string, string][] = [];
     for (const e of graph.edges) {
-      if (e.target === y && (e.type === RELATIONS.muestra || e.type === RELATIONS.stack || e.type === RELATIONS.relacionado)) {
+      if (e.target === y && (e.type === RELATIONS.muestra || e.type === RELATIONS.stack || e.type === RELATIONS.relacionado || e.type === LOGRO_RELATIONS.tecnologia)) {
         out.push([e.source, e.type]);
       }
       if (e.source === y && (e.type === RELATIONS.parte_de || e.type === RELATIONS.relacionado)) {

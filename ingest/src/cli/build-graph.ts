@@ -37,7 +37,7 @@ console.log(`  Nodos:   ${graph.nodes.length} (${count(graph.nodes, (n) => n.tip
 console.log(`  Aristas: ${graph.edges.length} (${count(graph.edges, (e) => e.type)})`);
 
 if (values.public && !values.verbose) {
-  const n = Object.keys(report.pendientes).length + report.redactions.length + report.warnings.length;
+  const n = Object.keys(report.pendientes).length + report.redactions.length + report.warnings.length + report.logros.warnings.length;
   if (n) console.log(`\n${n} avisos omitidos (pueden nombrar notas privadas). Usa --verbose en local.`);
   process.exit(0);
 }
@@ -55,4 +55,16 @@ if (report.warnings.length) {
   console.log(`\nAdvertencias: ${report.warnings.length}`);
   for (const w of report.warnings) console.log(`  - ${w}`);
 }
+const lg = report.logros;
+if (lg.total) {
+  const sinP = Object.entries(lg.sinProyecto);
+  console.log(`
+Logros de la BASE: ${lg.total} (${lg.total - sinP.length} con proyecto, ${lg.total - lg.sinTecnologia.length} con tecnología)`);
+  // Agrupados por el proyecto buscado: la solución es una línea "Nodo: [[…]]" por sección.
+  for (const [proyecto, ids] of Object.entries(Object.groupBy(sinP, ([, p]) => p))) {
+    console.log(`  - sin proyecto "${proyecto}" (agrega "Nodo: [[…]]" a su sección): ${ids!.map(([id]) => id).join(', ')}`);
+  }
+  if (lg.sinTecnologia.length) console.log(`  - sin tecnología reconocida (agrega aliases a la nota de tecnología): ${lg.sinTecnologia.join(', ')}`);
+}
+for (const w of lg.warnings) console.log(`  ! ${w}`);
 if (report.skipped.length) console.log(`\nNotas omitidas (sin frontmatter o sin tipo): ${report.skipped.join(', ')}`);

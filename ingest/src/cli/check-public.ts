@@ -6,7 +6,7 @@
  * si alguna no se cumple. Solo imprime conteos: en CI el log es público.
  */
 import { readFileSync } from 'node:fs';
-import type { Graph } from '../model.ts';
+import { NEVER_PUBLIC_TIPOS, type Graph } from '../model.ts';
 import { PUBLIC_EDGE_PROPS, PUBLIC_NODE_PROPS } from '../visibility.ts';
 
 const file = process.argv[2];
@@ -22,6 +22,7 @@ const ids = new Set(graph.nodes.map((n) => n.id));
 if (graph.meta?.public !== true) errors.push('meta.public no es true');
 for (const n of graph.nodes) {
   if (n.tipo === 'pendiente') errors.push('hay un nodo pendiente');
+  if (NEVER_PUBLIC_TIPOS.includes(n.tipo)) errors.push(`hay un nodo de tipo nunca público: ${n.tipo}`);
   for (const k of Object.keys(n.props)) if (!PUBLIC_NODE_PROPS.includes(k)) errors.push(`propiedad no permitida: ${k}`);
   if (/^#{1,6}\s*bit[aá]cora/im.test(n.body.normalize('NFC'))) errors.push('un cuerpo contiene la sección Bitácora');
 }

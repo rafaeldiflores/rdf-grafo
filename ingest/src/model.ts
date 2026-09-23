@@ -46,7 +46,14 @@ export const RELATIONS = {
 } as const satisfies Record<string, string>;
 
 export type RelationField = keyof typeof RELATIONS;
-export const RELATION_TYPES: readonly string[] = Object.values(RELATIONS);
+
+/** Relaciones de los logros, derivadas de la BASE (no del frontmatter): ver logros.ts. */
+export const LOGRO_RELATIONS = {
+  proyecto: 'LOGRO_DE',
+  tecnologia: 'DEMUESTRA',
+} as const;
+
+export const RELATION_TYPES: readonly string[] = [...Object.values(RELATIONS), ...Object.values(LOGRO_RELATIONS)];
 
 /**
  * Subconjunto curado de `stack`. No crea aristas propias: marca
@@ -64,13 +71,17 @@ export const NODE_LABELS: Record<string, string> = {
   persona: 'Persona',
   pendiente: 'Pendiente',
   postulacion: 'Postulacion',
+  logro: 'Logro',
 };
 
 /**
  * Tipos que NUNCA se exportan en público, aunque la nota diga `visibilidad: publico`
- * (postulaciones: empresas, sueldos y estados de procesos de selección).
+ * (postulaciones: empresas, sueldos y estados de procesos de selección; logros:
+ * métricas de la BASE privada, incluidas las ESTIMADAS que nunca se imprimen).
  */
-export const NEVER_PUBLIC_TIPOS: readonly string[] = ['postulacion'];
+export const NEVER_PUBLIC_TIPOS: readonly string[] = ['postulacion', 'logro'];
+
+export const LOGRO_TIPO = 'logro';
 
 export const PENDING_TIPO = 'pendiente';
 

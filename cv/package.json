@@ -1,0 +1,24 @@
+{
+  "name": "@grafo/cv",
+  "version": "0.1.0",
+  "description": "CV ATS de 1 página: Markdown → HTML → PDF (Chrome headless)",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "cv": "node src/cli.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "dependencies": {
+    "gray-matter": "^4.0.3",
+    "playwright-core": "^1.63.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  },
+  "private": true
+}

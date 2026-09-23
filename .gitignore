@@ -6,3 +6,6 @@ out/
 .env
 .env.*
 !.env.example
+# Archivos de credenciales descargados de Neo4j Aura
+Neo4j-*.txt
+*credentials*.txt

@@ -1,0 +1,102 @@
+# Valida cada PR (y cada push a main) antes de que llegue al deploy.
+#
+# deploy.yml solo prueba ingest y web, y solo al publicar. Este workflow cubre
+# los seis componentes del repo en paralelo, sin secrets ni acceso al vault:
+# todo corre sobre el código y los fixtures de los tests.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Un push nuevo al mismo PR cancela la corrida anterior.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  node:
+    name: ${{ matrix.pkg }}
+    runs-on: ubuntu-latest
+    strategy:
+      # Si un paquete falla, igual se ve el resultado de los demás.
+      fail-fast: false
+      matrix:
+        include:
+          - pkg: ingest
+            typecheck: typecheck
+          - pkg: cv
+            typecheck: typecheck
+          # mcp y postulador-mcp importan código de ../cv y ../ingest:
+          # necesitan sus node_modules.
+          - pkg: mcp
+            typecheck: typecheck
+            deps: cv ingest
+          - pkg: postulador-mcp
+            typecheck: type-check
+            deps: cv ingest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: '*/package-lock.json'
+
+      - name: Dependencias de paquetes hermanos
+        if: ${{ matrix.deps }}
+        run: for d in ${{ matrix.deps }}; do npm ci --prefix "$d"; done
+
+      - name: Instalar
+        working-directory: ${{ matrix.pkg }}
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: ${{ matrix.pkg }}
+        run: npm run ${{ matrix.typecheck }}
+
+      - name: Tests
+        working-directory: ${{ matrix.pkg }}
+        run: npm test
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Instalar
+        working-directory: web
+        run: npm ci
+
+      - name: Tests
+        working-directory: web
+        run: npx ng test --watch=false
+
+      # El build no necesita graph.json: el sitio lo carga en runtime.
+      - name: Build
+        working-directory: web
+        run: npx ng build
+
+  tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Hooks de Claude Code (punta a punta, en un directorio temporal)
+        run: bash tools/test/test-hooks.sh

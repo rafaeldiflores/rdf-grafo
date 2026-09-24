@@ -96,12 +96,13 @@ export class Postulador {
    * Requisitos vacíos y oferta ausente son válidos: devuelve una lista vacía.
    * Con el binding AI disponible, suma sugerencias semánticas para lo que quede en
    * 'brecha' (ver ingest/src/sugerencias.ts); sin él o si falla, sigue solo con léxico.
+   * `busqueda` declara si la capa semántica corrió de verdad ('hibrida') o no ('lexica').
    */
   async brechas(requisitos: string[] = [], oferta = '') {
     const { graph, tecnologias } = await this.grafo();
-    const reqs = await agregarSugerencias(brechasDe(graph, requisitos, oferta), tecnologias, this.embed);
+    const { requisitos: reqs, hibrida } = await agregarSugerencias(brechasDe(graph, requisitos, oferta), tecnologias, this.embed);
     const respaldadas = reqs.filter((r) => r.nivel === 'demostrada' || r.nivel === 'declarada' || r.nivel === 'mencionada').length;
-    return { requisitos: reqs, cobertura: { respaldadas, total: reqs.length } };
+    return { requisitos: reqs, cobertura: { respaldadas, total: reqs.length }, busqueda: hibrida ? ('hibrida' as const) : ('lexica' as const) };
   }
 
   /**

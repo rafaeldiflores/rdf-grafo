@@ -71,33 +71,37 @@ describe('calcularVectores', () => {
 describe('agregarSugerencias', () => {
   const tecnologias = new Map([['LLM', 'LLM Large Language Models']]);
 
-  it('sin embedder, devuelve los requisitos intactos', async () => {
+  it('sin embedder, devuelve los requisitos intactos y busqueda "lexica"', async () => {
     const reqs = [req('APIs de LLMs')];
     const out = await agregarSugerencias(reqs, tecnologias, undefined);
-    expect(out).toEqual(reqs);
+    expect(out.requisitos).toEqual(reqs);
+    expect(out.hibrida).toBe(false);
   });
 
-  it('si el embedder falla, degrada a la clasificación léxica sin romper', async () => {
+  it('si el embedder falla, degrada a la clasificación léxica sin romper y reporta "lexica"', async () => {
     const reqs = [req('APIs de LLMs')];
     const embed = vi.fn().mockRejectedValue(new Error('sin cuota'));
     const out = await agregarSugerencias(reqs, tecnologias, embed);
-    expect(out).toEqual(reqs);
+    expect(out.requisitos).toEqual(reqs);
+    expect(out.hibrida).toBe(false);
   });
 
-  it('sin requisitos en brecha, no llama al embedder', async () => {
+  it('sin requisitos en brecha, no llama al embedder y reporta "lexica"', async () => {
     const reqs = [req('Python', 'demostrada')];
     const embed = vi.fn();
-    await agregarSugerencias(reqs, tecnologias, embed);
+    const out = await agregarSugerencias(reqs, tecnologias, embed);
     expect(embed).not.toHaveBeenCalled();
+    expect(out.hibrida).toBe(false);
   });
 
-  it('camino feliz: sugiere el candidato correcto', async () => {
+  it('camino feliz: sugiere el candidato correcto y reporta "hibrida"', async () => {
     const reqs = [req('APIs de LLMs')];
     const embed = vi.fn(async (textos: readonly string[]) =>
       textos.map((t) => (t.includes('LLM') ? [1, 0] : [0, 1])),
     );
     const out = await agregarSugerencias(reqs, tecnologias, embed);
-    expect(out[0]!.nivel).toBe('sugerida');
-    expect(out[0]!.candidato?.tecnologia).toBe('LLM');
+    expect(out.requisitos[0]!.nivel).toBe('sugerida');
+    expect(out.requisitos[0]!.candidato?.tecnologia).toBe('LLM');
+    expect(out.hibrida).toBe(true);
   });
 });

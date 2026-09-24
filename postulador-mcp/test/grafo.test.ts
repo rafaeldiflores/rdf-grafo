@@ -67,6 +67,7 @@ describe('Postulador: brechas', () => {
     const { p, gh } = montar();
     const r = await p.brechas(['Firestore', 'Flask', 'Docker'], 'Buscamos Angular');
     expect(r.cobertura).toEqual({ respaldadas: 3, total: 4 });
+    expect(r.busqueda).toBe('lexica'); // sin embedder
     expect(r.requisitos.map((x) => [x.termino, x.nivel])).toEqual([
       ['Angular', 'demostrada'],
       ['Firestore', 'demostrada'],
@@ -80,7 +81,7 @@ describe('Postulador: brechas', () => {
   });
 
   it('acepta requisitos vacíos y sin oferta', async () => {
-    expect(await montar().p.brechas()).toEqual({ requisitos: [], cobertura: { respaldadas: 0, total: 0 } });
+    expect(await montar().p.brechas()).toEqual({ requisitos: [], cobertura: { respaldadas: 0, total: 0 }, busqueda: 'lexica' });
   });
 
   it('con embedder, sugiere un candidato para lo que quedó en brecha (nunca suma a cobertura)', async () => {
@@ -89,16 +90,18 @@ describe('Postulador: brechas', () => {
     const { p } = montar(embed);
     const r = await p.brechas(['Docker'], '');
     expect(r.cobertura).toEqual({ respaldadas: 0, total: 1 }); // sugerida no cuenta como respaldo
+    expect(r.busqueda).toBe('hibrida');
     expect(r.requisitos[0]).toMatchObject({ nivel: 'sugerida', candidato: { tecnologia: 'Flask', similitud: 1 } });
   });
 
-  it('si el embedder falla, brechas sigue funcionando solo con léxico', async () => {
+  it('si el embedder falla, brechas sigue funcionando solo con léxico y lo declara', async () => {
     const embed: Embedder = async () => {
       throw new Error('Workers AI sin cuota');
     };
     const { p } = montar(embed);
     const r = await p.brechas(['Firestore', 'Docker'], '');
     expect(r.requisitos.map((x) => x.nivel)).toEqual(['demostrada', 'brecha']);
+    expect(r.busqueda).toBe('lexica');
   });
 });
 

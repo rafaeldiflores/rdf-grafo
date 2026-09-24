@@ -49,14 +49,18 @@ export async function calcularVectores(textos: readonly string[], embed: Embedde
  * Punto de entrada: agrega sugerencias a una clasificación de brechas ya hecha.
  * Si `embed` no está disponible o falla (sin credenciales, red, cuota), devuelve
  * `reqs` sin tocar — nunca rompe ni bloquea el resto de `brechas`.
+ *
+ * `hibrida` dice si la capa semántica realmente corrió (para que quien use el
+ * resultado pueda declarar "CV hecho con búsqueda híbrida" o "solo léxica" sin
+ * adivinar por la presencia de 'sugerida', que puede no haber encontrado nada).
  */
 export async function agregarSugerencias(
   reqs: readonly Requisito[],
   tecnologias: ReadonlyMap<string, string>, // id de la nota → texto a embeber (nombre + aliases)
   embed: Embedder | undefined,
-): Promise<Requisito[]> {
+): Promise<{ requisitos: Requisito[]; hibrida: boolean }> {
   const pendientes = reqs.filter((r) => r.nivel === 'brecha');
-  if (!embed || !pendientes.length || !tecnologias.size) return [...reqs];
+  if (!embed || !pendientes.length || !tecnologias.size) return { requisitos: [...reqs], hibrida: false };
   try {
     const [vectoresRequisito, vectoresTecnologia] = await Promise.all([
       calcularVectores(pendientes.map((r) => r.termino), embed),
@@ -64,8 +68,8 @@ export async function agregarSugerencias(
         (porTexto) => new Map([...tecnologias].map(([id, texto]) => [id, porTexto.get(texto)!])),
       ),
     ]);
-    return sugerirCandidatos(reqs, vectoresRequisito, vectoresTecnologia);
+    return { requisitos: sugerirCandidatos(reqs, vectoresRequisito, vectoresTecnologia), hibrida: true };
   } catch {
-    return [...reqs]; // degradación segura: se queda con la clasificación léxica
+    return { requisitos: [...reqs], hibrida: false }; // degradación segura: se queda con la clasificación léxica
   }
 }

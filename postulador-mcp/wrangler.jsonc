@@ -22,6 +22,9 @@
   },
   "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "7ff0cd547b77408bae1995936db5bfb5" }],
   "browser": { "binding": "BROWSER" },
+  // bge-m3 para la capa semántica de brechas (ver src/embeddings.ts). Sin costo aparte:
+  // mismo binding que MAZA usa para lo mismo, incluido en el plan de Workers.
+  "ai": { "binding": "AI" },
   // Logs sin contenidos: el código no registra entradas ni salidas de herramientas.
   "observability": { "enabled": true },
   "dev": { "port": 8788 }

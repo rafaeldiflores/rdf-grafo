@@ -12,3 +12,7 @@ Neo4j-*.txt
 
 # Config de propagación: rutas de esta máquina
 ingest/propagacion.local.json
+
+# Skills instaladas localmente por el harness (no son parte del repo)
+.agents/
+.claude/

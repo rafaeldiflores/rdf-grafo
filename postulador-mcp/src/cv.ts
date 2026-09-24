@@ -15,6 +15,7 @@ import { addLogros, buildGraph } from '../../ingest/src/graph.ts';
 import { parseLogros, RUTA_BASE } from '../../ingest/src/logros.ts';
 import type { Graph } from '../../ingest/src/model.ts';
 import { parseNote, type ParsedNote } from '../../ingest/src/parser.ts';
+import { agregarSugerencias, type Embedder } from '../../ingest/src/sugerencias.ts';
 import type { PdfNube } from './pdf.ts';
 import { b64, type Vault } from './vault.ts';
 
@@ -24,6 +25,8 @@ export class Postulador {
   constructor(
     private readonly vault: Vault,
     private readonly pdf: Pdf,
+    /** Opcional: sin él, `brechas` sigue funcionando solo con matching léxico. */
+    private readonly embed?: Embedder,
   ) {}
 
   private async encabezado() {
@@ -72,22 +75,31 @@ export class Postulador {
   /**
    * Grafo mínimo para brechas y auditoría: proyectos, tecnologías y aprendizajes
    * (solo frontmatter, ver Vault.frontmatters) + logros de la BASE. 4 subrequests.
+   * `tecnologias` es id → "nombre + aliases" para la capa semántica de brechas.
    */
-  private async grafo(): Promise<Graph> {
+  private async grafo(): Promise<{ graph: Graph; tecnologias: Map<string, string> }> {
     const carpetas = ['proyectos', 'tecnologias', 'aprendizaje'] as const;
     const [base, ...notas] = await Promise.all([this.vault.leer(RUTA_BASE), ...carpetas.map((c) => this.vault.frontmatters(c))]);
     const parsed = notas.flatMap((xs, i) => xs.map((x) => parseNote(`${carpetas[i]}/${x.nombre}`, x.frontmatter))).filter((n): n is ParsedNote => n !== null);
     const { graph } = buildGraph(parsed);
     addLogros(graph, parseLogros(base ?? '').logros);
-    return graph;
+    const tecnologias = new Map(
+      parsed
+        .filter((n) => n.data.tipo === 'tecnologia')
+        .map((n) => [n.id, [n.id, ...([n.data.aliases ?? []].flat().map(String))].join(' ')] as const),
+    );
+    return { graph, tecnologias };
   }
 
   /**
    * Qué pide una oferta frente a lo que el grafo respalda (ver ingest/src/brechas.ts).
    * Requisitos vacíos y oferta ausente son válidos: devuelve una lista vacía.
+   * Con el binding AI disponible, suma sugerencias semánticas para lo que quede en
+   * 'brecha' (ver ingest/src/sugerencias.ts); sin él o si falla, sigue solo con léxico.
    */
   async brechas(requisitos: string[] = [], oferta = '') {
-    const reqs = brechasDe(await this.grafo(), requisitos, oferta);
+    const { graph, tecnologias } = await this.grafo();
+    const reqs = await agregarSugerencias(brechasDe(graph, requisitos, oferta), tecnologias, this.embed);
     const respaldadas = reqs.filter((r) => r.nivel === 'demostrada' || r.nivel === 'declarada' || r.nivel === 'mencionada').length;
     return { requisitos: reqs, cobertura: { respaldadas, total: reqs.length } };
   }
@@ -97,7 +109,7 @@ export class Postulador {
    * proyectos, así que las reglas de versión quedan fuera y se dice explícitamente.
    */
   async auditar() {
-    const [graph, base, nombres] = await Promise.all([this.grafo(), this.vault.leer(RUTA_BASE), this.vault.listar('cv/base')]);
+    const [{ graph }, base, nombres] = await Promise.all([this.grafo(), this.vault.leer(RUTA_BASE), this.vault.listar('cv/base')]);
     const cvs = Object.fromEntries(await Promise.all(nombres.map(async (n) => [n.slice(0, -'.md'.length), (await this.vault.leer(`cv/base/${n}`)) ?? ''] as const)));
     const hallazgos = auditar({ graph, base: base ?? '', cvs, repos: {} }).map(({ donde: _d, ...h }) => h);
     return {

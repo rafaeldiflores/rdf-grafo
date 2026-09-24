@@ -10,8 +10,8 @@ export function agregarAlArray(texto: string, campo: string, link: string): { te
   const re = new RegExp(`^${campo}:\\s*\\[(.*)\\]\\s*$`, 'm');
   const m = texto.match(re);
   if (!m) return { texto, ok: false };
-  if (m[1].split(',').map((s) => s.trim()).includes(link)) return { texto, ok: true };
-  const nuevo = m[1].trim() ? `${m[1]}, ${link}` : link;
+  if (m[1]!.split(',').map((s) => s.trim()).includes(link)) return { texto, ok: true };
+  const nuevo = m[1]!.trim() ? `${m[1]}, ${link}` : link;
   return { texto: texto.replace(re, `${campo}: [${nuevo}]`), ok: true };
 }
 
@@ -21,7 +21,7 @@ export function agregarAliases(texto: string, nuevos: readonly string[]): string
   const re = /^aliases:\s*\[(.*)\]\s*$/m;
   const m = texto.match(re);
   if (m) {
-    const existentes = m[1].split(',').map((s) => s.trim()).filter(Boolean);
+    const existentes = m[1]!.split(',').map((s) => s.trim()).filter(Boolean);
     const todos = [...new Set([...existentes, ...nuevos])];
     return texto.replace(re, `aliases: [${todos.join(', ')}]`);
   }

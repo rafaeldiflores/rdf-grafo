@@ -16,6 +16,7 @@ import { McpAgent } from 'agents/mcp';
 import { z } from 'zod';
 import { ESTADOS } from '../../cv/src/postulaciones.ts';
 import { Postulador } from './cv.ts';
+import { embedderDesdeAi } from './embeddings.ts';
 import { GitHubHandler } from './github-handler.ts';
 import { htmlAPdf, type BrowserBinding } from './pdf.ts';
 import type { Props } from './utils.ts';
@@ -33,9 +34,12 @@ export class PostuladorMCP extends McpAgent<Env, Record<string, never>, Props> {
   }
 
   private postulador() {
-    return new Postulador(new Vault(this.env.VAULT_TOKEN, this.env.VAULT_REPO), (html, papel) =>
-      // El tipo generado (BrowserRun) y el que espera @cloudflare/puppeteer (Fetcher) difieren; en ejecución es el mismo binding.
-      htmlAPdf(this.env.BROWSER as unknown as BrowserBinding, html, papel),
+    return new Postulador(
+      new Vault(this.env.VAULT_TOKEN, this.env.VAULT_REPO),
+      (html, papel) =>
+        // El tipo generado (BrowserRun) y el que espera @cloudflare/puppeteer (Fetcher) difieren; en ejecución es el mismo binding.
+        htmlAPdf(this.env.BROWSER as unknown as BrowserBinding, html, papel),
+      embedderDesdeAi(this.env.AI),
     );
   }
 
@@ -90,7 +94,7 @@ export class PostuladorMCP extends McpAgent<Env, Record<string, never>, Props> {
       {
         title: 'Brechas frente a una oferta',
         description:
-          'Clasifica lo que pide una oferta contra el grafo de Rafa: demostrada (logros de la BASE), declarada (stack de un proyecto), mencionada (texto de un logro, sin nota de tecnología), conocida (nota sin uso) o brecha. Extrae tú los requisitos de la oferta y pásalos en `requisitos`; `oferta` (texto) detecta además tecnologías conocidas. Devuelve {requisitos, cobertura: {respaldadas, total}}; respaldadas = demostrada + declarada + mencionada. No inventa respaldo.',
+          'Clasifica lo que pide una oferta contra el grafo de Rafa: demostrada (logros de la BASE), declarada (stack de un proyecto), mencionada (texto de un logro, sin nota de tecnología), conocida (nota sin uso), sugerida (sin match de texto, pero similar por embeddings a una nota existente — candidato a revisar, nunca respaldo real) o brecha. Extrae tú los requisitos de la oferta y pásalos en `requisitos`; `oferta` (texto) detecta además tecnologías conocidas. Devuelve {requisitos, cobertura: {respaldadas, total}}; respaldadas = demostrada + declarada + mencionada (sugerida NUNCA cuenta). No inventa respaldo.',
         inputSchema: {
           requisitos: z.array(z.string()).default([]).describe('Términos que pide la oferta, p. ej. ["React", "Docker"]'),
           oferta: z.string().optional().describe('Texto de la oferta (opcional)'),

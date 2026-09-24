@@ -13,13 +13,16 @@
  *   mencionada  — no es nota de tecnología, pero el texto de algún logro la nombra
  *                 (p. ej. "Scrum"): es real, falta crear la nota o un alias
  *   conocida    — hay nota de tecnología, pero sin proyectos ni logros
+ *   sugerida    — ninguna coincide por texto, pero por similitud semántica (embeddings,
+ *                 ver sugerencias.ts) se parece a una nota existente: candidato a revisar
+ *                 a mano (alias o nota nueva), nunca cuenta como respaldo real
  *   brecha      — nada en el grafo la respalda
  */
 import { tecnologiasEn, type Termino } from './logros.ts';
 import { LOGRO_RELATIONS, LOGRO_TIPO, RELATIONS, type Graph, type GraphNode } from './model.ts';
 
-export type Nivel = 'demostrada' | 'declarada' | 'mencionada' | 'conocida' | 'brecha';
-export const NIVELES: readonly Nivel[] = ['demostrada', 'declarada', 'mencionada', 'conocida', 'brecha'];
+export type Nivel = 'demostrada' | 'declarada' | 'mencionada' | 'conocida' | 'sugerida' | 'brecha';
+export const NIVELES: readonly Nivel[] = ['demostrada', 'declarada', 'mencionada', 'conocida', 'sugerida', 'brecha'];
 
 export interface Requisito {
   /** Término tal como lo pide la oferta (o el nombre de la tecnología si se detectó en el texto). */
@@ -35,6 +38,8 @@ export interface Requisito {
   aprendizajes: string[];
   /** true si no la pidió Claude y salió de buscar tecnologías conocidas en el texto de la oferta. */
   detectada: boolean;
+  /** Solo en nivel 'sugerida': la nota más parecida por embeddings y su similitud coseno. */
+  candidato?: { tecnologia: string; similitud: number };
 }
 
 const plano = (s: string): string => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
@@ -104,6 +109,7 @@ const TITULOS: Record<Nivel, string> = {
   declarada: 'Declaradas en un proyecto, sin logro que las nombre (respaldo débil)',
   mencionada: 'Mencionadas en logros, sin nota de tecnología (crear nota o alias)',
   conocida: 'Con nota de tecnología, pero sin proyectos ni logros',
+  sugerida: 'Sugeridas por similitud semántica (revisar a mano, no es respaldo real)',
   brecha: 'Brechas: nada en el grafo las respalda',
 };
 
@@ -121,6 +127,7 @@ export function formatBrechas(reqs: readonly Requisito[]): string {
         r.logros.length && `${r.logros.length} logro(s): ${r.logros.slice(0, 5).join(', ')}${r.logros.length > 5 ? '…' : ''}`,
         r.proyectos.length && `stack de ${r.proyectos.join(', ')}`,
         r.aprendizajes.length && `formación: ${r.aprendizajes.join(', ')}`,
+        r.candidato && `¿será [[${r.candidato.tecnologia}]]? (similitud ${Math.round(r.candidato.similitud * 100)}%)`,
         r.detectada && 'detectada en el texto de la oferta',
       ].filter(Boolean);
       lines.push(`- ${nombre}${det.length ? ` — ${det.join(' · ')}` : ''}`);

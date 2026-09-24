@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { Postulador } from '../src/cv.ts';
+import type { Embedder } from '../../ingest/src/sugerencias.ts';
 import { puedeLeer, soloFrontmatter, Vault } from '../src/vault.ts';
 import { githubFalso } from './github-falso.ts';
 
@@ -23,10 +24,10 @@ const VAULT: Record<string, string> = {
   'aprendizaje/Curso.md': `---\ntipo: aprendizaje\ncubre: ["[[Flask]]"]\n---\n## Bitácora\n- ${BITACORA}\n`,
 };
 
-function montar() {
+function montar(embed?: Embedder) {
   const gh = githubFalso({ ...VAULT });
   const pdf = async () => ({ pdf: new Uint8Array(), paginas: 1, lineasDeMas: 0, lineasResumen: 1 });
-  return { gh, p: new Postulador(new Vault('TOKEN', 'rafa/rdf-vault', 'main', gh.http), pdf) };
+  return { gh, p: new Postulador(new Vault('TOKEN', 'rafa/rdf-vault', 'main', gh.http), pdf, embed) };
 }
 
 describe('lectura solo de frontmatter', () => {
@@ -80,6 +81,24 @@ describe('Postulador: brechas', () => {
 
   it('acepta requisitos vacíos y sin oferta', async () => {
     expect(await montar().p.brechas()).toEqual({ requisitos: [], cobertura: { respaldadas: 0, total: 0 } });
+  });
+
+  it('con embedder, sugiere un candidato para lo que quedó en brecha (nunca suma a cobertura)', async () => {
+    // Vector fabricado: "Docker" y la nota "Flask" comparten dirección, el resto no.
+    const embed: Embedder = async (textos) => textos.map((t) => (t === 'Docker' || t === 'Flask' ? [1, 0] : [0, 1]));
+    const { p } = montar(embed);
+    const r = await p.brechas(['Docker'], '');
+    expect(r.cobertura).toEqual({ respaldadas: 0, total: 1 }); // sugerida no cuenta como respaldo
+    expect(r.requisitos[0]).toMatchObject({ nivel: 'sugerida', candidato: { tecnologia: 'Flask', similitud: 1 } });
+  });
+
+  it('si el embedder falla, brechas sigue funcionando solo con léxico', async () => {
+    const embed: Embedder = async () => {
+      throw new Error('Workers AI sin cuota');
+    };
+    const { p } = montar(embed);
+    const r = await p.brechas(['Firestore', 'Docker'], '');
+    expect(r.requisitos.map((x) => x.nivel)).toEqual(['demostrada', 'brecha']);
   });
 });
 

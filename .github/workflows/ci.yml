@@ -32,12 +32,14 @@ jobs:
             typecheck: typecheck
           - pkg: cv
             typecheck: typecheck
-          # mcp importa código de ../cv y ../ingest: necesita sus node_modules.
+          # mcp y postulador-mcp importan código de ../cv y ../ingest:
+          # necesitan sus node_modules.
           - pkg: mcp
             typecheck: typecheck
             deps: cv ingest
           - pkg: postulador-mcp
             typecheck: type-check
+            deps: cv ingest
     steps:
       - uses: actions/checkout@v7
 

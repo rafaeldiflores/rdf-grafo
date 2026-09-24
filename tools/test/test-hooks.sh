@@ -14,6 +14,10 @@ ok()   { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; fails=$((fails + 1)); }
 check() { if eval "$2"; then ok "$1"; else fail "$1"; fi; }
 g() { git -c user.name=test -c user.email=test@test -c commit.gpgsign=false "$@"; }
+# end.sh commitea en el vault falso con el git de la máquina: sin esto, falla
+# donde no hay identidad global (runners de CI).
+export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@test
+export GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@test
 
 # --- Vault falso con remoto ---------------------------------------------------
 git init -q --bare "$TMP/vault-remote.git"

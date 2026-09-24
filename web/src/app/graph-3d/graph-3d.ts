@@ -542,7 +542,11 @@ export class Graph3D {
     // corrió hacia abajo en moverCentro). Márgenes para etiquetas y bordes.
     const utilV = tanV * Math.max(0.3, 1 - (this.arriba() + 60) / Math.max(el.clientHeight, 1));
     const utilH = tanV * cam.aspect * 0.9;
-    const elev = Math.asin(Math.min(0.9, Math.max(-0.9, (cam.position.y - c.y) / (cam.position.distanceTo(c as THREE.Vector3Like) || 1))));
+    // La vista general mira el grafo de frente (su lado ancho está en X): se
+    // conserva si se miraba desde adelante o desde atrás, y una leve elevación.
+    // Sin esto, tras volar a un nodo el encuadre podía quedar de canto.
+    const elevActual = Math.asin(Math.min(0.9, Math.max(-0.9, (cam.position.y - c.y) / (cam.position.distanceTo(c as THREE.Vector3Like) || 1))));
+    const elev = Math.min(0.35, Math.max(0.08, elevActual));
     // Encuadre con perspectiva real: para cada nodo, la distancia mínima a la
     // que entra en pantalla es su profundidad hacia la cámara más su desvío
     // lateral (o vertical) dividido por la tangente útil. Se toma el peor caso
@@ -550,7 +554,7 @@ export class Graph3D {
     // tolerancia: un borde que asoma un instante en diagonal no molesta); si
     // no gira, solo en el ángulo actual, que es lo que se ve.
     const gira = !!(fg.controls() as { autoRotate?: boolean }).autoRotate;
-    const azActual = Math.atan2(cam.position.x - c.x, cam.position.z - c.z);
+    const azActual = Math.abs(Math.atan2(cam.position.x - c.x, cam.position.z - c.z)) < Math.PI / 2 ? 0 : Math.PI;
     const angulos = gira ? Array.from({ length: 12 }, (_, k) => (k / 12) * Math.PI * 2) : [azActual];
     let dist = 0;
     for (const az of angulos) {
@@ -569,11 +573,9 @@ export class Graph3D {
       }
     }
     if (gira) dist *= 0.86;
-    const p = cam.position;
-    const dir = { x: p.x - c.x, y: p.y - c.y, z: p.z - c.z };
-    const len = Math.hypot(dir.x, dir.y, dir.z) || 1;
+    const dir = { x: Math.sin(azActual) * Math.cos(elev), y: Math.sin(elev), z: Math.cos(azActual) * Math.cos(elev) };
     fg.cameraPosition(
-      { x: c.x + (dir.x / len) * dist, y: c.y + (dir.y / len) * dist, z: c.z + (dir.z / len) * dist },
+      { x: c.x + dir.x * dist, y: c.y + dir.y * dist, z: c.z + dir.z * dist },
       c,
       this.reducedMotion ? 0 : ms,
     );

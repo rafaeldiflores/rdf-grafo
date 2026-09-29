@@ -85,7 +85,7 @@
         <div class="canvas scene">
           <app-graph-3d [graph]="graph()!" [hiddenTipos]="hiddenTipos()" [selectedId]="selectedId()"
                         [matchIds]="matchIds()" [enfoque]="enfoque()" [cobertura]="cobertura()" [arriba]="alturaChrome()"
-                        (nodeSelect)="elegir($event)" />
+                        [abajo]="abajo()" (nodeSelect)="elegir($event)" />
         </div>
       } @else {
         <div class="canvas scene">
@@ -138,7 +138,7 @@
           </div>
         </section>
       } @else if (resumen(); as r) {
-        <aside class="card intro scene-dark" [class.away]="selectedNode()" aria-label="Resumen del grafo">
+        <aside #intro class="card intro scene-dark" [class.away]="selectedNode()" aria-label="Resumen del grafo">
           <p class="who">Rafael Díaz Flores <span>Ingeniero en Informática · AI Engineer</span></p>
           <p class="nums">
             <span><b>{{ r.proyectos }}</b> proyectos</span>

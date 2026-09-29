@@ -132,7 +132,7 @@ export function cielo(
  * Estrellas con tamaño, tinte y fase propios. Titilan y el cielo gira lento;
  * `velocidad` < 1 lo calma (movimiento reducido) sin dejarlo muerto.
  */
-export function estrellas(three: Three, color: string, velocidad: number): THREE.Points {
+export function estrellas(three: Three, color: string, velocidad: number, escala: number): THREE.Points {
   const count = 1800;
   const pos = new Float32Array(count * 3);
   const size = new Float32Array(count);
@@ -152,7 +152,7 @@ export function estrellas(three: Three, color: string, velocidad: number): THREE
   geo.setAttribute('aSize', new three.BufferAttribute(size, 1));
   geo.setAttribute('aPhase', new three.BufferAttribute(phase, 1));
   const material = new three.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uColor: { value: new three.Color(color) }, uScale: { value: devicePixelRatio } },
+    uniforms: { uTime: { value: 0 }, uColor: { value: new three.Color(color) }, uScale: { value: escala } },
     vertexShader: /* glsl */ `
       attribute float aSize;
       attribute float aPhase;
@@ -228,7 +228,7 @@ export function onda(three: Three, scene: THREE.Scene, camera: THREE.Camera, pos
  * grafo. La deriva es un desplazamiento senoidal en el shader (sin CPU por
  * frame); las cercanas a la cámara crecen y se ven desenfocadas, como bokeh.
  */
-export function polvo(three: Three, colores: readonly string[], velocidad: number): THREE.Points {
+export function polvo(three: Three, colores: readonly string[], velocidad: number, escala: number): THREE.Points {
   const count = 700;
   const pos = new Float32Array(count * 3);
   const col = new Float32Array(count * 3);
@@ -250,7 +250,7 @@ export function polvo(three: Three, colores: readonly string[], velocidad: numbe
   geo.setAttribute('aColor', new three.BufferAttribute(col, 3));
   geo.setAttribute('aSeed', new three.BufferAttribute(seed, 1));
   const material = new three.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uScale: { value: devicePixelRatio } },
+    uniforms: { uTime: { value: 0 }, uScale: { value: escala } },
     vertexShader: /* glsl */ `
       attribute vec3 aColor;
       attribute float aSeed;

@@ -28,6 +28,7 @@ export class App {
   private readonly view2d = viewChild(GraphView);
   private readonly view3d = viewChild(Graph3D);
   private readonly chrome = viewChild.required<ElementRef<HTMLElement>>('chrome');
+  private readonly intro = viewChild<ElementRef<HTMLElement>>('intro');
 
   /** 3D por defecto; 2D si no hay WebGL o si el visitante lo eligió antes. */
   protected readonly webgl = hasWebGL();
@@ -88,6 +89,11 @@ export class App {
   protected readonly movil = signal(matchMedia('(max-width: 720px)').matches);
   /** Alto de la barra flotante: la escena se centra debajo de ella. */
   protected readonly alturaChrome = signal(0);
+  private readonly alturaIntro = signal(0);
+  /** En celular la tarjeta de resumen tapa el pie del lienzo: el encuadre la descuenta. */
+  protected readonly abajo = computed(() =>
+    this.movil() && this.cobertura() === 'ninguna' && this.intro() ? this.alturaIntro() + 12 : 0,
+  );
 
   // ── Recorrido guiado ─────────────────────────────────────────────────────
   protected readonly paradas = computed(() => {
@@ -127,6 +133,13 @@ export class App {
     effect((onCleanup) => {
       const el = this.chrome().nativeElement;
       const ro = new ResizeObserver(() => this.alturaChrome.set(el.offsetHeight));
+      ro.observe(el);
+      onCleanup(() => ro.disconnect());
+    });
+    effect((onCleanup) => {
+      const el = this.intro()?.nativeElement;
+      if (!el) return;
+      const ro = new ResizeObserver(() => this.alturaIntro.set(el.offsetHeight));
       ro.observe(el);
       onCleanup(() => ro.disconnect());
     });

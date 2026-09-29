@@ -133,6 +133,13 @@ app-graph-3d, .scene-dark {
   }
   &.focus { color: #fff; background: rgb(5 7 11 / 0.72); }
   &.faded { opacity: 0.08; }
+
+  // Celular: el lienzo es angosto y 11 px pesan el doble que en escritorio.
+  @media (max-width: 720px) {
+    padding: 0 4px;
+    font-size: 8.5px;
+    &.n3-proyecto { font-size: 11px; }
+  }
 }
 
 // Rótulo de capa en la vista de arquitectura de un proyecto.

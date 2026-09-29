@@ -113,6 +113,8 @@ export class Graph3D {
   readonly cobertura = input<Cobertura>('ninguna');
   /** Alto en px de la interfaz que flota sobre el borde superior del lienzo. */
   readonly arriba = input(0);
+  /** Alto en px de lo que flota sobre el borde inferior (la tarjeta de resumen en celular). */
+  readonly abajo = input(0);
   readonly nodeSelect = output<string | null>();
 
   protected readonly ready = signal(false);
@@ -240,12 +242,22 @@ export class Graph3D {
         .d3Force('ancla', anclarCentro() as never);
 
       this.paintLinks(palette);
+      // Resolución: el búfer de dibujo sigue la densidad real de la pantalla (tope
+      // 2,5). Con el tope anterior de 1,5 en celular (DPR ~2,6) todo se estiraba
+      // al 57 %: aristas borrosas y brillo lavado.
+      const ratio = Math.min(devicePixelRatio, 2.5);
+      // gl_PointSize va en píxeles de pantalla, no en unidades de la escena: en un
+      // lienzo angosto las partículas quedaban enormes respecto del grafo. Se
+      // escalan con el ancho (referencia 980 px) y con la resolución del búfer.
+      const escalaPuntos = () => ratio * Math.min(1, el.clientWidth / 980);
+      const cielo3d = estrellas(three, palette.star, this.reducedMotion ? 0.5 : 1, escalaPuntos());
+      const polvo3d = polvo(three, [palette.tipos['proyecto']!, palette.tipos['tecnologia']!, palette.tipos['canal']!, palette.star], this.reducedMotion ? 0.5 : 1, escalaPuntos());
       fg.scene().add(
         // El ambiente (polvo que deriva, estrellas) sigue vivo con movimiento
         // reducido, a menor velocidad: es lento, lejano y no desplaza la vista.
         // Lo que sí se apaga es lo que marea: giro de cámara, vuelos y flotación.
-        estrellas(three, palette.star, this.reducedMotion ? 0.5 : 1),
-        polvo(three, [palette.tipos['proyecto']!, palette.tipos['tecnologia']!, palette.tipos['canal']!, palette.star], this.reducedMotion ? 0.5 : 1),
+        cielo3d,
+        polvo3d,
       );
 
       // Brillo: resolución reducida en celular, donde la GPU es más modesta.
@@ -264,7 +276,7 @@ export class Graph3D {
       fg.scene().background = new three.Color(palette.bg);
       fg.scene().environment = sky.entorno;
       sky.fondo.dispose();
-      fg.renderer().setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 2));
+      fg.renderer().setPixelRatio(ratio);
 
       // Entrada: la cámara parte lejos y el grafo se despliega mientras gira despacio.
       fg.cameraPosition({ x: 0, y: 120, z: mobile ? 1100 : 900 });
@@ -303,6 +315,7 @@ export class Graph3D {
       const ro = new ResizeObserver(() => {
         fg.width(el.clientWidth).height(el.clientHeight);
         bloom.resolution.set(el.clientWidth, el.clientHeight);
+        for (const p of [cielo3d, polvo3d]) (p.material as THREE.ShaderMaterial).uniforms['uScale']!.value = escalaPuntos();
         // El desplazamiento de la proyección depende del tamaño del lienzo.
         untracked(() => this.moverCentro(this.cobertura(), this.arriba()));
         const horizontal = el.clientWidth >= el.clientHeight;
@@ -461,6 +474,7 @@ export class Graph3D {
     effect(() => {
       const cobertura = this.cobertura();
       const arriba = this.arriba();
+      this.abajo();
       if (!this.ready()) return;
       this.moverCentro(cobertura, arriba);
     });
@@ -497,7 +511,7 @@ export class Graph3D {
     const destino = {
       // Positivo = la ventana se corre a la derecha/abajo, la escena a la izquierda/arriba.
       x: cobertura === 'lateral' ? 200 : 0,
-      y: -arriba / 2 + (cobertura === 'inferior' ? h * 0.3 : cobertura === 'recorrido' && movil ? h * 0.14 : 0),
+      y: (untracked(this.abajo) - arriba) / 2 + (cobertura === 'inferior' ? h * 0.3 : cobertura === 'recorrido' && movil ? h * 0.14 : 0),
     };
     const cam = fg.camera() as THREE.PerspectiveCamera;
     cancelAnimationFrame(this.centroRaf);
@@ -538,9 +552,9 @@ export class Graph3D {
     const cam = fg.camera() as THREE.PerspectiveCamera;
     const el = this.host().nativeElement;
     const tanV = Math.tan(((cam.fov / 2) * Math.PI) / 180);
-    // Alto útil: la barra flotante tapa `arriba` px (el centro óptico ya se
-    // corrió hacia abajo en moverCentro). Márgenes para etiquetas y bordes.
-    const utilV = tanV * Math.max(0.3, 1 - (this.arriba() + 60) / Math.max(el.clientHeight, 1));
+    // Alto útil: la barra flotante tapa `arriba` px y la tarjeta `abajo` (el
+    // centro óptico ya se corrió en moverCentro). Márgenes para etiquetas y bordes.
+    const utilV = tanV * Math.max(0.3, 1 - (this.arriba() + this.abajo() + 60) / Math.max(el.clientHeight, 1));
     const utilH = tanV * cam.aspect * 0.9;
     // La vista general mira el grafo de frente (su lado ancho está en X): se
     // conserva si se miraba desde adelante o desde atrás, y una leve elevación.
@@ -859,7 +873,8 @@ export class Graph3D {
     const fase = Math.random() * Math.PI * 2;
     const amp = proyecto ? 1.1 : 0.7;
     let escala = this.reducedMotion ? 1 : 0;
-    const tecnologia = n.tipo === 'tecnologia';
+    // En celular las etiquetas son más chicas (styles.scss): caben desde más lejos.
+    const umbral = matchMedia('(max-width: 720px)').matches ? 0.62 : 0.85;
     const dondeEsta = new three.Vector3();
     esfera.onBeforeRender = (renderer, _scene, camera) => {
       const t = performance.now();
@@ -883,16 +898,16 @@ export class Graph3D {
       for (const m of visual.materials) m.emissiveIntensity = visual.emisivo + latido * 0.25 + onda * 0.45;
       escala += (visual.target * intro - escala) * (this.reducedMotion ? 1 : 0.14);
       body.scale.setScalar(Math.max(escala, 0.001));
-      // Nivel de detalle: los nombres de tecnologías aparecen al acercarse. Se mide
-      // cuántos píxeles ocupa una unidad de la escena a la distancia del nodo;
-      // con la vista general en celular no caben 40 nombres legibles.
+      // Nivel de detalle: los nombres (salvo proyectos) aparecen al acercarse. Se
+      // mide cuántos píxeles ocupa una unidad de la escena a la distancia del nodo;
+      // con la vista general en celular no caben 60 nombres legibles.
       let detalle = 1;
-      if (tecnologia && !label.classList.contains('focus')) {
+      if (!proyecto && !label.classList.contains('focus')) {
         const cam = camera as THREE.PerspectiveCamera;
         const d = cam.position.distanceTo(group.getWorldPosition(dondeEsta));
         const alto = renderer.domElement.clientHeight;
         const pxPorUnidad = alto / (2 * d * Math.tan(((cam.fov / 2) * Math.PI) / 180));
-        detalle = Math.min(1, Math.max(0, (pxPorUnidad - 0.85) / 0.35));
+        detalle = Math.min(1, Math.max(0, (pxPorUnidad - umbral) / 0.35));
       }
       const op = Math.min(intro, detalle);
       // Atenuado por selección: manda la clase CSS `faded`.

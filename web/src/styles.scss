@@ -137,8 +137,8 @@ app-graph-3d, .scene-dark {
   // Celular: el lienzo es angosto y 11 px pesan el doble que en escritorio.
   @media (max-width: 720px) {
     padding: 0 4px;
-    font-size: 8.5px;
-    &.n3-proyecto { font-size: 11px; }
+    font-size: 8px;
+    &.n3-proyecto { font-size: 10.5px; }
   }
 }
 
@@ -155,6 +155,11 @@ app-graph-3d, .scene-dark {
   white-space: nowrap;
   pointer-events: none;
   user-select: none;
+
+  @media (max-width: 720px) {
+    padding: 1px 6px;
+    font-size: 8.5px;
+  }
 }
 
 // Botón de música: ícono dibujado; en celular solo el ícono.

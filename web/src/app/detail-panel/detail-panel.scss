@@ -108,3 +108,18 @@
   &:hover { border-color: var(--accent); }
   &.destacado { border-color: var(--accent); }
 }
+
+// Botón de plegar: solo en celular, donde la hoja tapa el grafo.
+.plegar { display: none; }
+.head > div { flex: 1; min-width: 0; }
+.head .icon-btn + .icon-btn { margin-left: -4px; }
+
+@media (max-width: 720px) {
+  .plegar { display: inline-grid; }
+  :host(.plegada) {
+    padding-bottom: 14px;
+    overflow: hidden;
+    .head ~ * { display: none; }
+    h2 { font-size: 1.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  }
+}

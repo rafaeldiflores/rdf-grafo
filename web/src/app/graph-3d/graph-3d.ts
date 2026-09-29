@@ -81,6 +81,12 @@ const CAPAS: readonly { nombre: string; categorias: readonly string[] }[] = [
   { nombre: 'Calidad', categorias: ['testing', 'herramientas', 'metodologia'] },
 ];
 const CAPA_GAP = 30;
+/**
+ * En celular (pantalla vertical y angosta) la torre crece hacia abajo y se
+ * angosta: pisos más separados y de menor radio, así los nombres no se pisan.
+ */
+const torre = () =>
+  matchMedia('(max-width: 720px)').matches ? { gap: 50, radio: 0.72 } : { gap: CAPA_GAP, radio: 1 };
 
 /**
  * Vista 3D del grafo (Three.js vía 3d-force-graph). Misma interfaz que la
@@ -511,7 +517,7 @@ export class Graph3D {
     const destino = {
       // Positivo = la ventana se corre a la derecha/abajo, la escena a la izquierda/arriba.
       x: cobertura === 'lateral' ? 200 : 0,
-      y: (untracked(this.abajo) - arriba) / 2 + (cobertura === 'inferior' ? h * 0.3 : cobertura === 'recorrido' && movil ? h * 0.14 : 0),
+      y: (untracked(this.abajo) - arriba) / 2 + (cobertura === 'recorrido' && movil ? h * 0.14 : 0),
     };
     const cam = fg.camera() as THREE.PerspectiveCamera;
     cancelAnimationFrame(this.centroRaf);
@@ -619,15 +625,27 @@ export class Graph3D {
       const cam = fg.camera().position;
       const cx = node.x!;
       const cz = node.z ?? 0;
-      const cy = node.y! - ((capas + 1) * CAPA_GAP) / 2;
+      const cy = node.y! - ((capas + 1) * torre().gap) / 2;
       const az = Math.atan2(cam.x - cx, cam.z - cz);
-      // En celular el lienzo es angosto y, con la hoja abierta, solo queda ~1/4 de
-      // alto visible: hace falta más distancia para ver todos los pisos.
+      // En celular se encuadra la torre en el hueco que dejan la barra y la hoja
+      // (alto medido): ancho = pisos más su rótulo; alto = todos los pisos.
       const movil = matchMedia('(max-width: 720px)').matches;
-      const d = (170 + capas * 30) * (movil ? (this.cobertura() === 'inferior' ? 3.3 : 2.1) : 1);
+      let d = 170 + capas * 30;
+      if (movil) {
+        const c3 = fg.camera() as THREE.PerspectiveCamera;
+        const el = this.host().nativeElement;
+        const tanV = Math.tan(((c3.fov / 2) * Math.PI) / 180);
+        const utilV = tanV * Math.max(0.2, 1 - (this.arriba() + this.abajo() + 30) / Math.max(el.clientHeight, 1));
+        const utilH = tanV * c3.aspect * 0.94;
+        let radio = 20;
+        for (const q of this.pinPos.values()) radio = Math.max(radio, Math.hypot(q.x - cx, q.z - cz));
+        const ancho = radio + 10 + 50; // semiancho: disco + rótulo a la izquierda
+        const alto = ((capas + 1) * torre().gap) / 2 + 18;
+        d = Math.max(ancho / utilH, alto / utilV) + radio * 0.6;
+      }
       (fg.controls() as { autoRotate: boolean }).autoRotate = false;
       fg.cameraPosition(
-        { x: cx + Math.sin(az) * d, y: cy + d * 0.28, z: cz + Math.cos(az) * d },
+        { x: cx + Math.sin(az) * d, y: cy + d * (movil ? 0.42 : 0.28), z: cz + Math.cos(az) * d },
         { x: cx, y: cy, z: cz },
         this.reducedMotion ? 0 : 1200,
       );
@@ -714,9 +732,10 @@ export class Graph3D {
     const group = new three.Group();
     const accent = new three.Color(readPalette(this.host().nativeElement).accent);
     const t0 = performance.now();
+    const forma = torre();
     capas.forEach((capa, i) => {
-      const y = py - CAPA_GAP * (i + 1);
-      const radio = Math.max(20, capa.nodos.length * 8.5);
+      const y = py - forma.gap * (i + 1);
+      const radio = Math.max(16, capa.nodos.length * 8.5 * forma.radio);
       // Cada piso gira en sentido alterno, como un mecanismo de relojería.
       const sentido = i % 2 ? -1 : 1;
       const vel = this.reducedMotion ? 0 : 0.12 * sentido; // rad/s

@@ -3,6 +3,10 @@
     <span class="tipo" [style.--dot]="'var(--tipo-' + node().tipo + ')'">{{ tipoLabel() }}</span>
     <h2 id="panel-title">{{ node().id }}</h2>
   </div>
+  <button type="button" class="icon-btn plegar" (click)="plegada.set(!plegada())"
+          [attr.aria-expanded]="!plegada()" [attr.aria-label]="plegada() ? 'Ver detalle' : 'Ocultar detalle'">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="plegada() ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'" /></svg>
+  </button>
   <button type="button" class="icon-btn" (click)="close.emit()" aria-label="Cerrar detalle">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
   </button>

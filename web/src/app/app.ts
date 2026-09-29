@@ -29,6 +29,7 @@ export class App {
   private readonly view3d = viewChild(Graph3D);
   private readonly chrome = viewChild.required<ElementRef<HTMLElement>>('chrome');
   private readonly intro = viewChild<ElementRef<HTMLElement>>('intro');
+  private readonly hoja = viewChild('panel', { read: ElementRef<HTMLElement> });
 
   /** 3D por defecto; 2D si no hay WebGL o si el visitante lo eligió antes. */
   protected readonly webgl = hasWebGL();
@@ -90,10 +91,18 @@ export class App {
   /** Alto de la barra flotante: la escena se centra debajo de ella. */
   protected readonly alturaChrome = signal(0);
   private readonly alturaIntro = signal(0);
-  /** En celular la tarjeta de resumen tapa el pie del lienzo: el encuadre la descuenta. */
-  protected readonly abajo = computed(() =>
-    this.movil() && this.cobertura() === 'ninguna' && this.intro() ? this.alturaIntro() + 12 : 0,
-  );
+  private readonly alturaHoja = signal(0);
+  /**
+   * En celular la tarjeta de resumen o la hoja de detalle tapan el pie del
+   * lienzo: el encuadre y el centro óptico descuentan su alto real.
+   */
+  protected readonly abajo = computed(() => {
+    if (!this.movil()) return 0;
+    const c = this.cobertura();
+    if (c === 'ninguna') return this.intro() ? this.alturaIntro() + 12 : 0;
+    if (c === 'inferior') return this.hoja() ? this.alturaHoja() : 0;
+    return 0;
+  });
 
   // ── Recorrido guiado ─────────────────────────────────────────────────────
   protected readonly paradas = computed(() => {
@@ -140,6 +149,13 @@ export class App {
       const el = this.intro()?.nativeElement;
       if (!el) return;
       const ro = new ResizeObserver(() => this.alturaIntro.set(el.offsetHeight));
+      ro.observe(el);
+      onCleanup(() => ro.disconnect());
+    });
+    effect((onCleanup) => {
+      const el = this.hoja()?.nativeElement as HTMLElement | undefined;
+      if (!el) return;
+      const ro = new ResizeObserver(() => this.alturaHoja.set(el.offsetHeight));
       ro.observe(el);
       onCleanup(() => ro.disconnect());
     });

@@ -165,7 +165,7 @@
         </aside>
       }
       @if (panelVisible()) {
-        <app-detail-panel class="panel" [class.scene-dark]="inmersivo()" role="complementary" aria-labelledby="panel-title"
+        <app-detail-panel #panel class="panel" [class.scene-dark]="inmersivo()" role="complementary" aria-labelledby="panel-title"
                           [graph]="graph()!" [node]="selectedNode()!" (select)="elegir($event)" (close)="elegir(null)" />
       }
     }

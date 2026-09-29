@@ -105,6 +105,9 @@ a { color: var(--accent); text-underline-offset: 0.2em; }
 // Siempre nocturna, sea cual sea el tema: el brillo solo luce sobre fondo oscuro.
 app-graph-3d, .scene-dark {
   @include dark;
+  // Sin esto el texto hereda el color ya resuelto de body (claro en tema claro)
+  // y quedaba casi negro sobre la hoja oscura.
+  color: var(--text);
   --scene-bg: #05070b;
   --scene-edge: #8fa3bf;
   --scene-star: #9fb4d6;

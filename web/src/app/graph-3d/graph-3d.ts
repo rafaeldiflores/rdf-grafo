@@ -62,6 +62,8 @@ interface Visual {
   halo0: number;
   /** Instante (ms) en que la onda de hover alcanza este nodo, si hay onda. */
   onda?: number;
+  /** Pone la etiqueta sobre el nodo (true) o debajo, como siempre (false). */
+  etiquetaArriba: (arriba: boolean) => void;
 }
 
 const endId = (e: string | N3): string => (typeof e === 'string' ? e : e.id);
@@ -143,6 +145,8 @@ export class Graph3D {
   private giros: (() => void)[] = [];
   /** Posición de piso de cada nodo fijado: al soltarlo tras arrastrar, vuelve ahí. */
   private readonly pinPos = new Map<string, { x: number; y: number; z: number }>();
+  /** Eje de la torre de arquitectura armada (x, z del proyecto), si hay una. */
+  private ejeTorre?: { x: number; z: number };
   /** Inicio de la entrada (los nodos se encienden desde el centro hacia afuera). */
   private introT0?: number;
   private readonly reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -663,6 +667,7 @@ export class Graph3D {
   /** Suelta los nodos fijados por la vista de arquitectura anterior. */
   private desarmarArquitectura(): void {
     for (const n of this.pinned) {
+      this.visuals.get(n.id)?.etiquetaArriba(false);
       delete n.fx;
       delete n.fy;
       delete n.fz;
@@ -670,6 +675,7 @@ export class Graph3D {
     const huboCapas = this.pinned.length > 0;
     this.pinned = [];
     this.pinPos.clear();
+    this.ejeTorre = undefined;
     if (this.giros.length && this.fg) {
       this.giros = [];
       this.fg.onEngineTick(() => undefined);
@@ -729,6 +735,7 @@ export class Graph3D {
     p.fz = pz;
     this.pinned.push(p);
     this.pinPos.set(p.id, { x: px, y: py, z: pz });
+    this.ejeTorre = { x: px, z: pz };
     const group = new three.Group();
     const accent = new three.Color(readPalette(this.host().nativeElement).accent);
     const t0 = performance.now();
@@ -748,6 +755,9 @@ export class Graph3D {
           this.pinPos.set(n.id, { x: n.fx, y: n.fy, z: n.fz });
         });
       ubicar(0);
+      // En cada anillo los nombres alternan arriba y abajo del nodo: en los pisos
+      // con muchas tecnologías (IA, Datos) vecinos contiguos ya no se pisan.
+      capa.nodos.forEach((n, j) => this.visuals.get(n.id)?.etiquetaArriba(j % 2 === 1));
       this.pinned.push(...capa.nodos);
       this.giros.push(() => ubicar(performance.now() - t0));
       const disco = new three.Mesh(
@@ -880,12 +890,18 @@ export class Graph3D {
     label.className = `n3-label n3-${n.tipo}`;
     label.textContent = n.id;
     const obj = new CSS2DObject(label);
-    const labelY = -(proyecto ? r * 1.9 : r + 3);
+    const labelAbajo = -(proyecto ? r * 1.9 : r + 3);
+    let labelY = labelAbajo;
     obj.position.set(0, labelY, 0);
     obj.center.set(0.5, 0);
     group.add(obj);
+    const etiquetaArriba = (arriba: boolean) => {
+      labelY = arriba ? r + 3 : labelAbajo;
+      obj.position.y = labelY;
+      obj.center.set(0.5, arriba ? 1 : 0);
+    };
 
-    const visual: Visual = { materials, body, label, halo: aura.material, target: 1, emisivo: 0.28, halo0: 0.75 };
+    const visual: Visual = { materials, body, label, halo: aura.material, target: 1, emisivo: 0.28, halo0: 0.75, etiquetaArriba };
     this.visuals.set(n.id, visual);
 
     // Cada frame: entrada escalonada, flotación suave y escala interpolada.
@@ -928,7 +944,19 @@ export class Graph3D {
         const pxPorUnidad = alto / (2 * d * Math.tan(((cam.fov / 2) * Math.PI) / 180));
         detalle = Math.min(1, Math.max(0, (pxPorUnidad - umbral) / 0.35));
       }
-      const op = Math.min(intro, detalle);
+      // Torre de arquitectura: los nombres del lado de atrás de cada anillo se
+      // atenúan; así los de adelante se leen aunque el piso tenga muchos nodos.
+      let fondo = 1;
+      const eje = this.ejeTorre;
+      if (eje && this.pinPos.has(n.id) && !proyecto) {
+        const cam = (camera as THREE.PerspectiveCamera).position;
+        const p = group.getWorldPosition(dondeEsta);
+        const hacia = { x: cam.x - eje.x, z: cam.z - eje.z };
+        const len = Math.hypot(hacia.x, hacia.z) || 1;
+        const frente = ((p.x - eje.x) * hacia.x + (p.z - eje.z) * hacia.z) / len;
+        fondo = frente < -4 ? 0.3 : frente < 4 ? 0.3 + ((frente + 4) / 8) * 0.7 : 1;
+      }
+      const op = Math.min(intro, detalle, fondo);
       // Atenuado por selección: manda la clase CSS `faded`.
       label.style.opacity = label.classList.contains('faded') || op >= 1 ? '' : String(Math.max(0, op));
     };

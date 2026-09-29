@@ -93,13 +93,13 @@ export class App {
   private readonly alturaIntro = signal(0);
   private readonly alturaHoja = signal(0);
   /**
-   * En celular la tarjeta de resumen o la hoja de detalle tapan el pie del
+   * La tarjeta de resumen (y en celular la hoja de detalle) tapan el pie del
    * lienzo: el encuadre y el centro óptico descuentan su alto real.
    */
   protected readonly abajo = computed(() => {
-    if (!this.movil()) return 0;
     const c = this.cobertura();
-    if (c === 'ninguna') return this.intro() ? this.alturaIntro() + 12 : 0;
+    if (c === 'ninguna') return this.intro() ? this.alturaIntro() + (this.movil() ? 12 : 20) : 0;
+    if (!this.movil()) return 0;
     if (c === 'inferior') return this.hoja() ? this.alturaHoja() : 0;
     return 0;
   });

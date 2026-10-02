@@ -16,6 +16,7 @@ import type { ForceGraph3DInstance } from '3d-force-graph';
 import type * as THREE from 'three';
 import type { PublicGraph } from '../graph.model';
 import { cielo, estrellas, halo, onda, polvo } from './escena';
+import { despejarEtiquetas, type CajaEtiqueta } from './etiquetas';
 
 /** Nodo y arista tal como los consume 3d-force-graph (la librería agrega x/y/z). */
 interface N3 {
@@ -64,6 +65,16 @@ interface Visual {
   onda?: number;
   /** Pone la etiqueta sobre el nodo (true) o debajo, como siempre (false). */
   etiquetaArriba: (arriba: boolean) => void;
+  /** Es un proyecto: su etiqueta nunca se oculta, a lo más se corre. */
+  proyecto: boolean;
+  /** Importancia de la etiqueta frente a otras del mismo nivel (grado del nodo). */
+  peso: number;
+  /** Opacidad que pide el nivel de detalle este frame, antes del despeje. */
+  deseada: number;
+  /** El despeje la apagó porque pisa a otra más importante. */
+  oculta: boolean;
+  /** Corrimiento vertical en px que le puso el despeje (0 = en su sitio). */
+  dy: number;
 }
 
 const endId = (e: string | N3): string => (typeof e === 'string' ? e : e.id);
@@ -150,6 +161,7 @@ export class Graph3D {
   /** Inicio de la entrada (los nodos se encienden desde el centro hacia afuera). */
   private introT0?: number;
   private readonly reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  private despejeRaf = 0;
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -338,11 +350,25 @@ export class Graph3D {
         clearTimeout(this.giroTimer);
         clearTimeout(this.pulsoTimer);
         cancelAnimationFrame(this.paralajeRaf);
+        cancelAnimationFrame(this.despejeRaf);
         fg.pauseAnimation();
         fg._destructor();
         fg.renderer().dispose();
         this.visuals.clear();
       });
+
+      // Despeje de etiquetas: unas 6 veces por segundo se revisa qué nombres se
+      // pisan en pantalla (ver etiquetas.ts). Va aparte del render para no medir
+      // el DOM en cada frame.
+      let ultimoDespeje = 0;
+      const despeje = (t: number) => {
+        if (t - ultimoDespeje > 160) {
+          ultimoDespeje = t;
+          this.despejar();
+        }
+        this.despejeRaf = requestAnimationFrame(despeje);
+      };
+      this.despejeRaf = requestAnimationFrame(despeje);
 
       this.fg = fg;
 
@@ -848,6 +874,52 @@ export class Graph3D {
       .linkDirectionalParticleColor(() => p.accent);
   }
 
+  /**
+   * Mide las etiquetas que el nivel de detalle quiere mostrar y resuelve los
+   * choques: las tecnologías que pisan a otra se apagan y los proyectos se
+   * corren en vertical. El corrimiento usa la propiedad CSS `translate`, que se
+   * compone con el `transform` que CSS2DRenderer escribe en cada frame.
+   */
+  private despejar(): void {
+    const cajas: CajaEtiqueta[] = [];
+    for (const [id, v] of this.visuals) {
+      const candidata = v.deseada > 0.05 && !v.label.classList.contains('faded');
+      const r = candidata ? v.label.getBoundingClientRect() : undefined;
+      // Fuera de cámara (CSS2DRenderer la deja en display:none) no participa.
+      if (!r || r.width === 0) {
+        v.oculta = false;
+        this.correr(v, 0);
+        continue;
+      }
+      // Lo que está corrida ahora mismo (puede ir a mitad de la transición).
+      const corrida = v.dy ? parseFloat(getComputedStyle(v.label).translate.split(' ')[1] ?? '0') || 0 : 0;
+      cajas.push({
+        id,
+        x0: r.left,
+        y0: r.top - corrida,
+        x1: r.right,
+        y1: r.bottom - corrida,
+        nivel: v.label.classList.contains('focus') ? 0 : v.proyecto ? 1 : 2,
+        peso: v.peso,
+        visible: !v.oculta,
+        dyActual: v.dy,
+      });
+    }
+    const { ocultas, dy } = despejarEtiquetas(cajas);
+    for (const c of cajas) {
+      const v = this.visuals.get(c.id)!;
+      v.oculta = ocultas.has(c.id);
+      this.correr(v, dy.get(c.id) ?? 0);
+    }
+  }
+
+  private correr(v: Visual, dy: number): void {
+    const d = Math.round(dy);
+    if (d === v.dy) return;
+    v.dy = d;
+    v.label.style.translate = d ? `0 ${d}px` : '';
+  }
+
   private buildNode(
     three: typeof THREE,
     CSS2DObject: typeof import('three/examples/jsm/renderers/CSS2DRenderer.js').CSS2DObject,
@@ -901,7 +973,21 @@ export class Graph3D {
       obj.center.set(0.5, arriba ? 1 : 0);
     };
 
-    const visual: Visual = { materials, body, label, halo: aura.material, target: 1, emisivo: 0.28, halo0: 0.75, etiquetaArriba };
+    const visual: Visual = {
+      materials,
+      body,
+      label,
+      halo: aura.material,
+      target: 1,
+      emisivo: 0.28,
+      halo0: 0.75,
+      etiquetaArriba,
+      proyecto,
+      peso: n.degree,
+      deseada: 1,
+      oculta: false,
+      dy: 0,
+    };
     this.visuals.set(n.id, visual);
 
     // Cada frame: entrada escalonada, flotación suave y escala interpolada.
@@ -957,8 +1043,11 @@ export class Graph3D {
         fondo = frente < -4 ? 0.3 : frente < 4 ? 0.3 + ((frente + 4) / 8) * 0.7 : 1;
       }
       const op = Math.min(intro, detalle, fondo);
-      // Atenuado por selección: manda la clase CSS `faded`.
-      label.style.opacity = label.classList.contains('faded') || op >= 1 ? '' : String(Math.max(0, op));
+      visual.deseada = op;
+      // Atenuado por selección: manda la clase CSS `faded`. Si el despeje la
+      // apagó porque pisa a otra etiqueta, se queda en 0.
+      const faded = label.classList.contains('faded');
+      label.style.opacity = faded || (op >= 1 && !visual.oculta) ? '' : String(visual.oculta ? 0 : Math.max(0, op));
     };
     return group;
   }

@@ -126,7 +126,8 @@ app-graph-3d, .scene-dark {
   text-shadow: 0 1px 3px #05070b, 0 0 8px #05070b;
   pointer-events: none;
   user-select: none;
-  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s;
+  // `translate` lo mueve el despeje de etiquetas (graph-3d/etiquetas.ts).
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s, translate 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 
   &.n3-proyecto {
     color: #f2f5fa;

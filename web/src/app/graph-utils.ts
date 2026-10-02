@@ -150,7 +150,7 @@ export function recorrido(graph: PublicGraph, max = 4): Parada[] {
       id: null,
       titulo: 'Todo conectado',
       ia: [],
-      texto: `${proyectos} proyectos y ${tecnologias} tecnologías, generados desde notas reales. Toca cualquier planeta para explorar.`,
+      texto: `${proyectos} proyectos y ${tecnologias} tecnologías, generados desde notas reales. Toca cualquier nodo para explorar.`,
     },
   ];
 }

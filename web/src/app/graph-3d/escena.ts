@@ -1,6 +1,6 @@
 /**
- * Piezas visuales de la escena 3D que no dependen del grafo: halo atmosférico
- * de los nodos, nebulosa de fondo, estrellas que titilan y onda de selección.
+ * Piezas visuales de la escena 3D que no dependen del grafo: destello de los
+ * nodos, estrellas que titilan, polvo y onda de selección.
  * Todo con shaders mínimos: 52 nodos no justifican nada más pesado.
  */
 import type * as THREE from 'three';
@@ -8,124 +8,41 @@ import type * as THREE from 'three';
 type Three = typeof THREE;
 
 /**
- * Halo tipo atmósfera (fresnel): una cáscara algo mayor que la esfera, vista por
- * dentro y con mezcla aditiva, que brilla más en el borde que en el centro.
+ * Destello de un nodo: un plano de cara a la cámara con caída radial y mezcla
+ * aditiva. El nodo se lee como un punto de luz con resplandor suave, sin
+ * volumen ni reflejos.
  */
-export function halo(three: Three, color: THREE.Color, radio: number): { mesh: THREE.Mesh; material: THREE.ShaderMaterial } {
+export function destello(three: Three, color: THREE.Color, radio: number): { mesh: THREE.Mesh; material: THREE.ShaderMaterial } {
   const material = new three.ShaderMaterial({
     uniforms: { uColor: { value: color }, uOpacity: { value: 1 } },
     vertexShader: /* glsl */ `
-      varying vec3 vNormal;
-      varying vec3 vView;
+      varying vec2 vUv;
       void main() {
-        vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        vNormal = normalize(normalMatrix * normal);
-        vView = normalize(-mv.xyz);
-        gl_Position = projectionMatrix * mv;
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }`,
     fragmentShader: /* glsl */ `
       uniform vec3 uColor;
       uniform float uOpacity;
-      varying vec3 vNormal;
-      varying vec3 vView;
+      varying vec2 vUv;
       void main() {
-        // Cara trasera: la normal apunta hacia afuera de la vista; el borde es |dot| ~ 0.
-        float f = pow(clamp(1.0 - abs(dot(vNormal, vView)), 0.0, 1.0), 2.2);
-        gl_FragColor = vec4(uColor * f * 0.9, f * uOpacity);
+        float d = length(vUv - 0.5) * 2.0;
+        // Núcleo gaussiano más una falda ancha y tenue; se apaga antes del borde
+        // del plano para que nunca se vea el cuadrado.
+        float f = exp(-d * d * 7.0) * 0.42 + pow(max(0.0, 1.0 - d), 3.0) * 0.13;
+        f *= 1.0 - smoothstep(0.8, 1.0, d);
+        gl_FragColor = vec4(uColor * f, f * uOpacity);
       }`,
-    side: three.BackSide,
     blending: three.AdditiveBlending,
     transparent: true,
     depthWrite: false,
   });
-  const mesh = new three.Mesh(new three.SphereGeometry(radio * 1.55, 32, 24), material);
+  const lado = radio * 5.2;
+  const mesh = new three.Mesh(new three.PlaneGeometry(lado, lado), material);
+  // Siempre de frente: el grafo y sus grupos no están rotados, así que basta
+  // copiar la orientación de la cámara.
+  mesh.onBeforeRender = (_r, _s, camera) => mesh.quaternion.copy(camera.quaternion);
   return { mesh, material };
-}
-
-/**
- * Cielo: panorama equirectangular pintado en un canvas con nubes de nebulosa
- * grandes y muy difuminadas (sin ruido ni grano, para no competir con los
- * nodos). Sirve de fondo y, filtrado con PMREM, de entorno: las esferas lo
- * reflejan levemente y toman el tinte de la nebulosa que tienen cerca.
- */
-export function cielo(
-  three: Three,
-  renderer: THREE.WebGLRenderer,
-  fondo: string,
-  colores: readonly string[],
-): { fondo: THREE.Texture; entorno: THREE.Texture } {
-  const W = 2048;
-  const H = 1024;
-  const base = document.createElement('canvas');
-  base.width = W;
-  base.height = H;
-  const g = base.getContext('2d')!;
-
-  // Semilla fija: el cielo es el mismo en cada visita (y en las capturas).
-  let seed = 7;
-  const rnd = () => ((seed = Math.imul(seed ^ (seed >>> 15), 0x2c1b3c6d) + 0x6d2b79f5), ((seed >>> 0) % 10000) / 10000);
-
-  const nube = (x: number, y: number, rx: number, ry: number, color: string, alfa: number, rot: number) => {
-    // Cada nube se dibuja también desplazada ±W: el panorama no tiene costura.
-    for (const dx of [-W, 0, W]) {
-      g.save();
-      g.translate(x + dx, y);
-      g.rotate(rot);
-      g.scale(1, ry / rx);
-      const grad = g.createRadialGradient(0, 0, 0, 0, 0, rx);
-      const c = new three.Color(color);
-      const rgb = `${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)}`;
-      grad.addColorStop(0, `rgba(${rgb},${alfa})`);
-      grad.addColorStop(0.45, `rgba(${rgb},${alfa * 0.45})`);
-      grad.addColorStop(1, `rgba(${rgb},0)`);
-      g.fillStyle = grad;
-      g.fillRect(-rx, -rx, rx * 2, rx * 2);
-      g.restore();
-    }
-  };
-
-  g.fillStyle = fondo;
-  g.fillRect(0, 0, W, H);
-  g.globalCompositeOperation = 'lighter';
-  // Tres cúmulos principales (uno por color) hechos de varias nubes superpuestas,
-  // en latitudes medias: cerca de los polos el panorama se deforma.
-  const centros = [
-    { x: 0.18, y: 0.42 },
-    { x: 0.52, y: 0.6 },
-    { x: 0.8, y: 0.36 },
-  ];
-  centros.forEach((cc, i) => {
-    const color = colores[i % colores.length]!;
-    for (let k = 0; k < 6; k++) {
-      nube(
-        (cc.x + (rnd() - 0.5) * 0.16) * W,
-        (cc.y + (rnd() - 0.5) * 0.16) * H,
-        180 + rnd() * 260,
-        90 + rnd() * 140,
-        color,
-        0.1 + rnd() * 0.08,
-        (rnd() - 0.5) * 1.2,
-      );
-    }
-  });
-  // Velo muy tenue que une los cúmulos, para que no parezcan manchas sueltas.
-  for (let k = 0; k < 5; k++) nube(rnd() * W, (0.35 + rnd() * 0.3) * H, 500 + rnd() * 300, 140, colores[k % colores.length]!, 0.05, 0);
-
-  // Difuminado final: elimina cualquier borde de los gradientes.
-  const out = document.createElement('canvas');
-  out.width = W;
-  out.height = H;
-  const o = out.getContext('2d')!;
-  o.filter = 'blur(28px)';
-  o.drawImage(base, 0, 0);
-
-  const tex = new three.CanvasTexture(out);
-  tex.mapping = three.EquirectangularReflectionMapping;
-  tex.colorSpace = three.SRGBColorSpace;
-  const pmrem = new three.PMREMGenerator(renderer);
-  const entorno = pmrem.fromEquirectangular(tex).texture;
-  pmrem.dispose();
-  return { fondo: tex, entorno };
 }
 
 /**

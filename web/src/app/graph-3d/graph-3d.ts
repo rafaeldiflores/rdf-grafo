@@ -15,7 +15,7 @@ import {
 import type { ForceGraph3DInstance } from '3d-force-graph';
 import type * as THREE from 'three';
 import type { PublicGraph } from '../graph.model';
-import { cielo, estrellas, halo, onda, polvo } from './escena';
+import { destello, estrellas, onda, polvo } from './escena';
 import { despejarEtiquetas, type CajaEtiqueta } from './etiquetas';
 
 /** Nodo y arista tal como los consume 3d-force-graph (la librería agrega x/y/z). */
@@ -288,16 +288,7 @@ export class Graph3D {
       // El clear color no se linealiza al pasar por los render targets del bloom
       // y el fondo salía gris (#262e3b en vez de #05070b, medido en píxeles);
       // como fondo de escena (scene.background) sí se convierte bien.
-      const sky = cielo(three, fg.renderer() as THREE.WebGLRenderer, palette.bg, [
-        palette.tipos['proyecto']!,
-        palette.tipos['canal']!,
-        palette.tipos['tecnologia']!,
-      ]);
-      // Fondo negro puro; la nebulosa solo existe como entorno: no se ve, pero
-      // las esferas la reflejan levemente y toman su tinte.
       fg.scene().background = new three.Color(palette.bg);
-      fg.scene().environment = sky.entorno;
-      sky.fondo.dispose();
       fg.renderer().setPixelRatio(ratio);
 
       // Entrada: la cámara parte lejos y el grafo se despliega mientras gira despacio.
@@ -929,31 +920,41 @@ export class Graph3D {
     const color = new three.Color(p.tipos[n.tipo] ?? p.tipos['pendiente']);
     const proyecto = n.tipo === 'proyecto';
     const r = proyecto ? 6.5 + Math.min(n.degree, 20) * 0.3 : n.tipo === 'tecnologia' ? 2.6 + Math.min(n.degree, 8) * 0.4 : n.tipo === 'aprendizaje' ? 3.3 : 4.2;
+    // Los nodos son luces, no cuerpos: un núcleo que solo emite (sin sombreado ni
+    // reflejos) y un destello suave alrededor. El emisivo va subido de base para
+    // que el núcleo quede sobre el umbral del bloom; applyState y el latido lo
+    // siguen modulando con `emissiveIntensity`.
+    // Los proyectos son más grandes: con menos emisivo no se queman en blanco.
+    const luz = color.clone().multiplyScalar(proyecto ? 1.75 : 2.0);
     const mat = () =>
-      // Algo metálicas y pulidas: reflejan levemente la nebulosa del entorno.
       new three.MeshStandardMaterial({
-        color,
-        emissive: color,
+        color: 0x000000,
+        emissive: luz,
         emissiveIntensity: 0.28,
-        roughness: 0.3,
-        metalness: 0.35,
-        envMapIntensity: 2.2,
+        roughness: 1,
+        metalness: 0,
         transparent: true,
       });
 
     const group = new three.Group();
     const body = new three.Group();
     const materials = [mat()];
-    const esfera = new three.Mesh(new three.SphereGeometry(r, 32, 24), materials[0]);
-    const aura = halo(three, color, r);
-    body.add(esfera, aura.mesh);
+    const esfera = new three.Mesh(new three.SphereGeometry(r * (proyecto ? 0.5 : 0.52), 24, 16), materials[0]);
+    const aura = destello(three, color, r);
+    // Zona de toque: el núcleo es chico, así que una esfera invisible del tamaño
+    // anterior sigue recibiendo el clic, el hover y el arrastre.
+    const toque = new three.Mesh(
+      new three.SphereGeometry(r, 12, 8),
+      new three.MeshBasicMaterial({ colorWrite: false, depthWrite: false }),
+    );
+    body.add(esfera, aura.mesh, toque);
     if (proyecto) {
-      // Anillo en órbita: los proyectos son los "planetas" de la constelación.
+      // Los proyectos se distinguen por un aro fino, quieto y de cara a la cámara.
       const ringMat = mat();
+      ringMat.side = three.DoubleSide;
       materials.push(ringMat);
-      const ring = new three.Mesh(new three.TorusGeometry(r * 1.7, 0.28, 8, 64), ringMat);
-      ring.rotation.x = Math.PI / 2.6;
-      if (!this.reducedMotion) ring.onBeforeRender = () => (ring.rotation.z += 0.004);
+      const ring = new three.Mesh(new three.RingGeometry(r * 1.32, r * 1.32 + 0.3, 72), ringMat);
+      ring.onBeforeRender = (_r, _s, camera) => ring.quaternion.copy(camera.quaternion);
       body.add(ring);
     }
     group.add(body);
